@@ -1,0 +1,43 @@
+/* Self-hosted so the tool works without any CDN (Google Fonts included). */
+@font-face {
+  font-family: 'Playfair Display';
+  font-weight: 400;
+  font-style: normal;
+  font-display: block;
+  src: url('fonts/playfair-display-latin-400-normal.woff2') format('woff2');
+}
+@font-face {
+  font-family: 'Playfair Display';
+  font-weight: 700;
+  font-style: normal;
+  font-display: block;
+  src: url('fonts/playfair-display-latin-700-normal.woff2') format('woff2');
+}
+@font-face {
+  font-family: 'Montserrat';
+  font-weight: 300;
+  font-style: normal;
+  font-display: block;
+  src: url('fonts/montserrat-latin-300-normal.woff2') format('woff2');
+}
+@font-face {
+  font-family: 'Montserrat';
+  font-weight: 400;
+  font-style: normal;
+  font-display: block;
+  src: url('fonts/montserrat-latin-400-normal.woff2') format('woff2');
+}
+@font-face {
+  font-family: 'Montserrat';
+  font-weight: 600;
+  font-style: normal;
+  font-display: block;
+  src: url('fonts/montserrat-latin-600-normal.woff2') format('woff2');
+}
+@font-face {
+  font-family: 'Montserrat';
+  font-weight: 700;
+  font-style: normal;
+  font-display: block;
+  src: url('fonts/montserrat-latin-700-normal.woff2') format('woff2');
+}

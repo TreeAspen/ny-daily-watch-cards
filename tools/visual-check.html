@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>visual check</title>
+<link rel="stylesheet" href="../assets/fonts.css">
+<style>
+  body{margin:0;background:#444;display:flex}
+  canvas{width:1080px;height:1350px;display:block}
+</style>
+</head>
+<body>
+<canvas id="c1"></canvas><canvas id="c2"></canvas>
+<script src="../assets/logo.js"></script>
+<script type="module">
+import { renderPhotoCard, renderDarkCard, FONT_SPECS, loadImage } from '../assets/render.js';
+
+const SAMPLE = {
+  slug: 'polysilicon-solar-chips',
+  category: 'Business',
+  headline: 'Polysilicon: The Hidden Link Between America’s Solar and Chip Industries',
+  subtitle: 'New solar tariffs, signed Aug. 6 — but the real target is chips.',
+  eyebrow: 'Why chips need solar',
+  heading: 'Three things to know',
+  bullets: [
+    "Chips use just 2.4% of the world's polysilicon. Solar uses nearly all the rest.",
+    'The U.S. had ~50% of global polysilicon capacity in 2005. Under 2% by 2024.',
+    'Price floors and a 15% tariff take effect Dec. 4.',
+  ],
+  date: 'AUGUST 12, 2026',
+};
+
+const STRESS = {
+  category: 'City Government',
+  headline: 'A Deliberately Overlong Headline That Has To Shrink Several Steps Before It Fits Inside The Body Column',
+  subtitle: 'And a subtitle that also runs long enough to force a second shrink pass, testing that nothing collides with the date or the logo at the bottom of the card.',
+  eyebrow: 'Stress test for the auto-fit',
+  heading: 'A heading long enough to wrap onto two full lines',
+  bullets: [
+    'A first bullet that is deliberately verbose so that it wraps across several lines and pushes the shrink loop toward its minimum size.',
+    'A second bullet, similarly padded out with clauses, to make sure the vertical gap logic still distributes the remaining space sensibly.',
+    'A third bullet with numbers: 2.4%, ~50%, Dec. 4, and 15% tariffs stacked together.',
+    'A fourth bullet, because four is more than the usual three.',
+  ],
+  date: 'AUGUST 16, 2026',
+};
+
+function testPhoto() {
+  const c = document.createElement('canvas');
+  c.width = 1600; c.height = 900;
+  const x = c.getContext('2d');
+  const g = x.createLinearGradient(0, 0, 1600, 900);
+  g.addColorStop(0, '#3a5c7a'); g.addColorStop(0.5, '#8a6a3a'); g.addColorStop(1, '#1d2530');
+  x.fillStyle = g; x.fillRect(0, 0, 1600, 900);
+  x.fillStyle = 'rgba(255,255,255,.22)';
+  for (let i = 0; i < 26; i++) x.fillRect(i * 62, 900 - (i * 37 % 520) - 60, 44, 900);
+  return c.toDataURL('image/png');
+}
+
+const data = new URLSearchParams(location.search).get('case') === 'stress' ? STRESS : SAMPLE;
+
+await Promise.all(FONT_SPECS.map((s) => document.fonts.load(s, 'Ag')));
+await document.fonts.ready;
+const photo = await loadImage(testPhoto());
+const logo = await loadImage(window.NDW_LOGO);
+
+const i1 = renderPhotoCard(document.getElementById('c1'), data, { photo, logo });
+const i2 = renderDarkCard(document.getElementById('c2'), data, { logo });
+document.title = 'done ' + JSON.stringify({ i1, i2 });
+</script>
+</body>
+</html>
