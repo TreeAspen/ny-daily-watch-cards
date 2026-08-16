@@ -1,9 +1,9 @@
 <!DOCTYPE html>
-<html lang="zh-CN">
+<html lang="en">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>NY Daily Watch · Instagram 卡片生成器</title>
+<title>NY Daily Watch · Card Generator</title>
 <link rel="icon" href="assets/logo.png">
 <link rel="stylesheet" href="assets/fonts.css">
 <style>
@@ -19,6 +19,9 @@
   h1{font:700 27px/1.2 'Playfair Display',serif;color:var(--gold)}
   header{display:flex;align-items:center;gap:14px;margin-bottom:6px}
   header img{width:44px;height:44px;border-radius:50%}
+  .langs{margin-left:auto;display:flex;gap:6px}
+  .langs button{padding:7px 13px;font-size:12.5px}
+  .langs button[aria-pressed=true]{border-color:var(--gold);color:var(--gold);background:#2b2416}
   .lede{color:var(--dim);font-size:13.5px;margin-bottom:24px}
   .lede kbd{background:#2a2a2a;border:1px solid var(--line);border-radius:4px;
     padding:1px 6px;font:600 12px/1 'Montserrat';color:var(--cream)}
@@ -30,12 +33,16 @@
   .panel{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:18px}
   .panel + .panel{margin-top:18px}
   .label{font:600 12px/1 'Montserrat';letter-spacing:.08em;text-transform:uppercase;
-    color:var(--dim);margin-bottom:10px;display:flex;justify-content:space-between;align-items:center}
+    color:var(--dim);margin-bottom:10px;display:flex;justify-content:space-between;
+    align-items:center;gap:12px}
 
-  textarea{width:100%;min-height:340px;resize:vertical;background:#131313;color:var(--text);
+  textarea{width:100%;resize:vertical;background:#131313;color:var(--text);
     border:1px solid var(--line);border-radius:8px;padding:14px;
     font:400 13px/1.6 ui-monospace,'Cascadia Mono',Consolas,monospace;tab-size:2}
   textarea:focus{outline:none;border-color:var(--gold)}
+  #json{min-height:340px}
+  #caption{min-height:300px;font-family:'Montserrat',system-ui,sans-serif;
+    font-size:13.5px;line-height:1.62;white-space:pre-wrap}
 
   .drop{border:1.5px dashed #3d3d3d;border-radius:8px;min-height:132px;display:flex;
     flex-direction:column;align-items:center;justify-content:center;gap:6px;cursor:pointer;
@@ -70,6 +77,12 @@
   #status.err{color:var(--bad)}
   #status.ok{color:var(--ok)}
 
+  #count{font:600 12px/1 'Montserrat';color:var(--dim)}
+  #count.over{color:var(--bad)}
+  #lint{margin-top:10px;font-size:12.5px;color:var(--bad);display:flex;
+    flex-direction:column;gap:4px}
+  #lint:empty{margin:0}
+
   details{margin-top:14px;border-top:1px solid var(--line);padding-top:12px}
   summary{cursor:pointer;font-size:12.5px;color:var(--dim)}
   summary:hover{color:var(--gold)}
@@ -81,72 +94,80 @@
 <body>
 <header>
   <img id="brandmark" alt="">
-  <h1>NY Daily Watch · 卡片生成器</h1>
+  <h1 data-i18n="appTitle"></h1>
+  <div class="langs">
+    <button id="lang-en" data-lang="en">English</button>
+    <button id="lang-zh" data-lang="zh">中文</button>
+  </div>
 </header>
-<p class="lede">
-  把整条新闻的 JSON 粘进左边 → 在任意位置按 <kbd>Ctrl</kbd>+<kbd>V</kbd> 贴上标题图 → 右边两张
-  1080×1350 卡片实时更新，可直接下载或复制。
-</p>
+<p class="lede" data-i18n-html="lede"></p>
 
 <div class="grid">
   <div>
     <div class="panel">
       <div class="label">
-        <span>1 · 新闻 JSON</span>
+        <span data-i18n="step1"></span>
         <span class="row">
-          <button class="ghost" id="btn-prompt">复制 AI 提示词</button>
-          <button class="ghost" id="btn-sample">载入示例</button>
+          <button class="ghost" id="btn-prompt" data-i18n="btnPrompt"></button>
+          <button class="ghost" id="btn-sample" data-i18n="btnSample"></button>
         </span>
       </div>
-      <textarea id="json" spellcheck="false" placeholder="在这里粘贴 JSON…"></textarea>
+      <textarea id="json" spellcheck="false"></textarea>
     </div>
 
     <div class="panel">
-      <div class="label"><span>2 · 标题图</span><span class="row">
-        <button class="ghost" id="btn-clear-img">移除</button></span></div>
-      <div class="drop" id="drop" tabindex="0">
-        <strong>点击选择 / 拖入 / Ctrl+V 粘贴</strong>
-        <span>裁成 1080×600 顶部图；不放图则留灰底</span>
-      </div>
+      <div class="label"><span data-i18n="step2"></span><span class="row">
+        <button class="ghost" id="btn-clear-img" data-i18n="btnClearImg"></button></span></div>
+      <div class="drop" id="drop" tabindex="0"></div>
       <input type="file" id="file" accept="image/*" hidden>
       <div class="row slider">
-        <label for="focus">纵向裁切</label>
+        <label for="focus" data-i18n="focusLabel"></label>
         <input type="range" id="focus" min="0" max="100" value="50">
-        <span id="focus-val">居中</span>
+        <span id="focus-val"></span>
       </div>
     </div>
 
     <div class="panel">
-      <div class="label"><span>3 · 导出</span></div>
+      <div class="label"><span data-i18n="step3"></span></div>
       <div class="row">
-        <button class="primary" id="btn-download">⬇ 一键下载两张 PNG</button>
+        <button class="primary" id="btn-download" data-i18n="btnDownload"></button>
       </div>
       <div id="status"></div>
 
       <details>
-        <summary>高级设置</summary>
+        <summary data-i18n="advanced"></summary>
         <div class="row">
-          <button class="ghost" id="btn-logo">更换 logo</button>
-          <button class="ghost" id="btn-logo-reset">恢复默认 logo</button>
+          <button class="ghost" id="btn-logo" data-i18n="btnLogo"></button>
+          <button class="ghost" id="btn-logo-reset" data-i18n="btnLogoReset"></button>
           <input type="file" id="logofile" accept="image/*" hidden>
         </div>
-        <p>字段：<code>category</code> <code>headline</code> <code>subtitle</code>
-          <code>eyebrow</code> <code>heading</code> <code>bullets[]</code>
-          <code>date</code> <code>slug</code>。多余字段会被忽略，缺字段按空处理。</p>
+        <p data-i18n-html="fieldsNote"></p>
       </details>
     </div>
   </div>
 
-  <div class="cards">
-    <div class="card">
-      <figure><canvas id="c1"></canvas></figure>
-      <div class="row"><button data-copy="1">复制卡片 1</button></div>
-      <div class="meta" id="m1"></div>
+  <div>
+    <div class="cards">
+      <div class="card">
+        <figure><canvas id="c1"></canvas></figure>
+        <div class="row"><button data-copy="1" data-i18n="copyCard1"></button></div>
+        <div class="meta" id="m1"></div>
+      </div>
+      <div class="card">
+        <figure><canvas id="c2"></canvas></figure>
+        <div class="row"><button data-copy="2" data-i18n="copyCard2"></button></div>
+        <div class="meta" id="m2"></div>
+      </div>
     </div>
-    <div class="card">
-      <figure><canvas id="c2"></canvas></figure>
-      <div class="row"><button data-copy="2">复制卡片 2</button></div>
-      <div class="meta" id="m2"></div>
+
+    <div class="panel" style="margin-top:20px">
+      <div class="label">
+        <span data-i18n="captionTitle"></span>
+        <span class="row"><span id="count"></span>
+          <button class="ghost" id="btn-caption" data-i18n="btnCopyCaption"></button></span>
+      </div>
+      <textarea id="caption" spellcheck="false"></textarea>
+      <div id="lint"></div>
     </div>
   </div>
 </div>
@@ -156,9 +177,119 @@
 import { renderPhotoCard, renderDarkCard, FONT_SPECS, loadImage } from './assets/render.js';
 
 const $ = (id) => document.getElementById(id);
-const ta = $('json'), c1 = $('c1'), c2 = $('c2');
-const STORE = 'ndw-cards-json';
+const ta = $('json'), cap = $('caption'), c1 = $('c1'), c2 = $('c2');
+const STORE = 'ndw-cards-json', LANG_STORE = 'ndw-cards-lang';
+const CAP_LIMIT = 2200;
+const SIGNOFF = "Read more at @theNYdailywatch 's bio.";
 
+/* ---- strings ------------------------------------------------------- */
+const STR = {
+  en: {
+    appTitle: 'NY Daily Watch · Card Generator',
+    lede: 'Paste the whole story as JSON on the left → press <kbd>Ctrl</kbd>+<kbd>V</kbd> anywhere to drop in the cover photo → both 1080×1350 cards render live, ready to download or copy. The caption comes out of the same paste.',
+    step1: '1 · Story JSON',
+    btnPrompt: 'Copy AI prompt',
+    btnSample: 'Load sample',
+    jsonPlaceholder: 'Paste JSON here…',
+    step2: '2 · Cover photo',
+    btnClearImg: 'Remove',
+    dropMain: 'Click, drag in, or press Ctrl+V',
+    dropSub: 'Cropped to a 1080×600 band; left grey if empty',
+    dropLoaded: (w, h) => `${w}×${h} · paste another to replace`,
+    focusLabel: 'Vertical crop',
+    focusCentre: 'centred',
+    focusUp: (n) => `up ${n}%`,
+    focusDown: (n) => `down ${n}%`,
+    step3: '3 · Export',
+    btnDownload: '⬇ Download both PNGs',
+    advanced: 'Advanced',
+    btnLogo: 'Replace logo',
+    btnLogoReset: 'Restore default logo',
+    fieldsNote: 'Fields: <code>category</code> <code>headline</code> <code>subtitle</code> <code>eyebrow</code> <code>heading</code> <code>bullets[]</code> <code>caption</code> <code>date</code> <code>slug</code>. Extra fields are ignored, missing ones render empty.',
+    copyCard1: 'Copy card 1',
+    copyCard2: 'Copy card 2',
+    captionTitle: 'Caption',
+    btnCopyCaption: 'Copy caption',
+    captionPlaceholder: 'The caption field of the pasted JSON shows up here, editable.',
+    copied: '✓ Copied',
+    meta1: (h, s) => `Headline ${h}px · subtitle ${s}px`,
+    meta1over: ' · still overflowing at the minimum size, shorten the text',
+    meta2: (h, b) => `Heading ${h}px · bullets ${b}px`,
+    meta2over: (n) => ` · one bullet runs ${n} lines, shorten it`,
+    waiting: 'Waiting for JSON…',
+    ready: (slug) => `Ready · ${slug}`,
+    parseErr: (m) => `JSON did not parse: ${m}`,
+    parseErrKept: (m) => `JSON did not parse: ${m} (showing the last good version)`,
+    downloaded: (a, b) => `Downloaded ${a} and ${b}`,
+    downloadFail: (m) => `Download failed: ${m}`,
+    copyFail: (m) => `Copy failed: ${m} (needs https or localhost)`,
+    copyTextFail: 'Copy failed — select the text and copy manually',
+    imgFail: 'That image could not be read',
+    noClipboard: 'this browser cannot write images to the clipboard',
+    chars: (n) => `${n.toLocaleString('en-US')} / 2,200`,
+    lintLong: (n) => `${(n - CAP_LIMIT).toLocaleString('en-US')} characters over the 2,200 limit.`,
+    lintSignoff: `Missing the exact sign-off line: ${SIGNOFF}`,
+    lintPhoto: 'Missing the final "Photo: …" credit line.',
+    lintHash: 'Contains a hashtag — the caption format allows none.',
+    lintMarketing: (w) => `Marketing wording to cut: ${w}`,
+    lintParas: (n) => `Body runs ${n} paragraphs; the format asks for an opening line plus 4–6.`,
+  },
+  zh: {
+    appTitle: 'NY Daily Watch · 卡片生成器',
+    lede: '把整条新闻的 JSON 粘进左边 → 在任意位置按 <kbd>Ctrl</kbd>+<kbd>V</kbd> 贴上标题图 → 右边两张 1080×1350 卡片实时更新，可直接下载或复制。caption 从同一次粘贴里提取。',
+    step1: '1 · 新闻 JSON',
+    btnPrompt: '复制 AI 提示词',
+    btnSample: '载入示例',
+    jsonPlaceholder: '在这里粘贴 JSON…',
+    step2: '2 · 标题图',
+    btnClearImg: '移除',
+    dropMain: '点击选择 / 拖入 / Ctrl+V 粘贴',
+    dropSub: '裁成 1080×600 顶部图；不放图则留灰底',
+    dropLoaded: (w, h) => `${w}×${h} · 再贴一张即可替换`,
+    focusLabel: '纵向裁切',
+    focusCentre: '居中',
+    focusUp: (n) => `上移 ${n}%`,
+    focusDown: (n) => `下移 ${n}%`,
+    step3: '3 · 导出',
+    btnDownload: '⬇ 一键下载两张 PNG',
+    advanced: '高级设置',
+    btnLogo: '更换 logo',
+    btnLogoReset: '恢复默认 logo',
+    fieldsNote: '字段：<code>category</code> <code>headline</code> <code>subtitle</code> <code>eyebrow</code> <code>heading</code> <code>bullets[]</code> <code>caption</code> <code>date</code> <code>slug</code>。多余字段忽略，缺字段按空处理。',
+    copyCard1: '复制卡片 1',
+    copyCard2: '复制卡片 2',
+    captionTitle: 'Caption 正文',
+    btnCopyCaption: '复制 caption',
+    captionPlaceholder: '粘贴的 JSON 里的 caption 字段会显示在这里，可直接编辑。',
+    copied: '✓ 已复制',
+    meta1: (h, s) => `标题 ${h}px · 副标 ${s}px`,
+    meta1over: ' · 已到最小字号仍溢出，请缩短文字',
+    meta2: (h, b) => `大标 ${h}px · 要点 ${b}px`,
+    meta2over: (n) => ` · 有要点占 ${n} 行，请缩短`,
+    waiting: '等待 JSON…',
+    ready: (slug) => `已就绪 · ${slug}`,
+    parseErr: (m) => `JSON 解析失败：${m}`,
+    parseErrKept: (m) => `JSON 解析失败：${m}（下面仍显示上一次成功的内容）`,
+    downloaded: (a, b) => `已下载 ${a} 和 ${b}`,
+    downloadFail: (m) => `下载失败：${m}`,
+    copyFail: (m) => `复制失败：${m}（需在 https 或 localhost 下打开）`,
+    copyTextFail: '复制失败，请手动选中复制',
+    imgFail: '图片读取失败',
+    noClipboard: '当前浏览器不支持写入图片到剪贴板',
+    chars: (n) => `${n.toLocaleString('en-US')} / 2,200`,
+    lintLong: (n) => `超出 2,200 字符上限 ${(n - CAP_LIMIT).toLocaleString('en-US')} 个。`,
+    lintSignoff: `缺少结尾固定句：${SIGNOFF}`,
+    lintPhoto: '缺少最后一行 "Photo: …" 图片来源。',
+    lintHash: '含有 hashtag——该格式不允许。',
+    lintMarketing: (w) => `需要删掉的营销用词：${w}`,
+    lintParas: (n) => `正文 ${n} 段；格式要求开场句之后 4–6 段。`,
+  },
+};
+
+let lang = localStorage.getItem(LANG_STORE) || 'en';
+const t = (k, ...a) => { const v = STR[lang][k]; return typeof v === 'function' ? v(...a) : v; };
+
+/* ---- data ---------------------------------------------------------- */
 const SAMPLE = {
   slug: 'polysilicon-solar-chips',
   category: 'Business',
@@ -172,28 +303,82 @@ const SAMPLE = {
     'Price floors and a 15% tariff take effect Dec. 4.',
   ],
   date: 'AUGUST 12, 2026',
+  caption: `The tariffs signed on Aug. 6 are written as a solar policy. The industry they are built to rescue makes semiconductors.
+
+Polysilicon is the shared input. Solar panels take nearly all of it; chipmakers take about 2.4% of world output, at a purity solar does not need. The same furnaces and the same trained crews serve both, which is why a plant that loses its solar orders cannot simply switch to the chip market and survive on it.
+
+The United States held roughly half of global polysilicon capacity in 2005. By 2024 it was under 2%, after Chinese producers scaled up and prices fell below Western production costs.
+
+The order sets a price floor and a 15% tariff, both taking effect Dec. 4. The Commerce Department frames it as rebuilding a supply chain the CHIPS Act left untouched.
+
+Solar installers say the floor raises panel costs at the moment utility demand is climbing, and that the domestic polysilicon it protects would take years to reach the volumes chipmakers actually need.
+
+What is unsettled is whether a price floor can hold capacity in place long enough for that to happen, or whether it only raises the cost of the panels the country is still buying from abroad.
+
+Read more at @theNYdailywatch 's bio.
+
+Photo: NY Daily Watch`,
 };
 
-const PROMPT = `把这条新闻整理成 NY Daily Watch 的 Instagram 双卡文案，只输出 JSON，不要任何解释或代码块标记：
+const PROMPT = `Turn this news story into a NY Daily Watch Instagram post. Output JSON only — no explanation, no code fences:
 
 {
-  "slug": "英文短横线 slug，用于文件名",
-  "category": "栏目名，1-2 个词，如 Business / Politics / City",
-  "headline": "卡片1主标题，英文，12 词以内，不要句号",
-  "subtitle": "卡片1副标题，一句话，25 词以内",
-  "eyebrow": "卡片2顶部小字，4-6 个词的角度提示",
-  "heading": "卡片2大标题，如 Three things to know",
-  "bullets": ["要点1", "要点2", "要点3"],
-  "date": "MONTH D, YYYY 全大写"
+  "slug": "short-hyphenated-english-slug-for-filenames",
+  "category": "section name, 1-2 words, e.g. Business / Politics / City",
+  "headline": "card 1 headline, English, under 12 words, no full stop",
+  "subtitle": "card 1 subtitle, one sentence, under 25 words",
+  "eyebrow": "card 2 top line, a 4-6 word angle cue",
+  "heading": "card 2 headline, e.g. Three things to know",
+  "bullets": ["point 1", "point 2", "point 3"],
+  "date": "MONTH D, YYYY in caps",
+  "caption": "Instagram caption — see the rules below"
 }
 
-要求：bullets 三条，每条 20 词以内、可独立成立、带具体数字或日期；全部用英文。
+Cards: exactly three bullets, each under 20 words, each able to stand alone, each carrying a specific number or date. All card text in English.
 
-新闻原文：
-<在这里粘贴新闻>`;
+Caption rules:
+- Open with a single line as its own paragraph — the only text above the fold. The best opener sounds like one thing and turns out to be another. If the reporting holds no such reversal, write a strong direct opener instead; never manufacture one.
+- Then 4-6 short paragraphs: the mechanism, the numbers, who said what, and the counterargument or what is still unsettled. Name the agency or the company, not "officials."
+- Include dates if the story is time-sensitive.
+- End with exactly this line: ${SIGNOFF}
+- Then a final line: Photo: [credit from the article, otherwise NY Daily Watch]
+- Under 2,200 characters. Plain declarative sentences. No marketing words (unlock, dive into, game-changing). No hashtags. Never invent a quote.
 
-let photoImg = null, logoImg = null, data = null;
-let lastGood = null;
+Separate caption paragraphs with \\n\\n inside the JSON string.
+
+Story:
+<paste the article here>`;
+
+const MARKETING = ['unlock', 'dive into', 'game-changing', 'game changer', 'deep dive',
+  'revolutionary', 'seamless', 'cutting-edge', 'must-see', 'buckle up', 'let that sink in',
+  'you won\'t believe', 'here\'s the kicker'];
+
+let photoImg = null, logoImg = null, data = null, lastGood = null;
+let captionFromJSON = null;          // last caption the JSON supplied, to protect edits
+let statusState = { key: 'waiting', args: [], cls: '' };
+
+/* ---- i18n application ---------------------------------------------- */
+function applyLang() {
+  document.documentElement.lang = lang === 'zh' ? 'zh-CN' : 'en';
+  document.title = t('appTitle');
+  document.querySelectorAll('[data-i18n]').forEach((el) => { el.textContent = t(el.dataset.i18n); });
+  document.querySelectorAll('[data-i18n-html]').forEach((el) => { el.innerHTML = t(el.dataset.i18nHtml); });
+  ta.placeholder = t('jsonPlaceholder');
+  cap.placeholder = t('captionPlaceholder');
+  document.querySelectorAll('[data-lang]').forEach((b) =>
+    b.setAttribute('aria-pressed', String(b.dataset.lang === lang)));
+  if (!photoImg) drawDropEmpty(); else drawDropLoaded();
+  setFocusLabel();
+  setStatus(statusState.key, statusState.cls, ...statusState.args);
+  if (data) paintMeta();
+  refreshCaptionUI();
+}
+
+document.querySelectorAll('[data-lang]').forEach((b) => b.addEventListener('click', () => {
+  lang = b.dataset.lang;
+  localStorage.setItem(LANG_STORE, lang);
+  applyLang();
+}));
 
 /* ---- input parsing ------------------------------------------------- */
 function parseJSON(raw) {
@@ -201,9 +386,7 @@ function parseJSON(raw) {
   if (!s) return null;
   s = s.replace(/^```(?:json)?\s*/i, '').replace(/```\s*$/, '').trim();
   const open = s.indexOf('{'), close = s.lastIndexOf('}');
-  if (open > 0 || (close !== -1 && close < s.length - 1)) {
-    if (open !== -1 && close > open) s = s.slice(open, close + 1);
-  }
+  if (open !== -1 && close > open) s = s.slice(open, close + 1);
   try { return JSON.parse(s); }
   catch (e) {
     // Trailing commas are the one thing LLM output gets wrong often enough to fix.
@@ -217,6 +400,8 @@ function normalize(o) {
   if (typeof d.bullets === 'string') d.bullets = d.bullets.split('\n');
   if (!Array.isArray(d.bullets)) d.bullets = [];
   d.bullets = d.bullets.map((b) => String(b).replace(/^[-•*]\s*/, '').trim()).filter(Boolean);
+  if (Array.isArray(d.caption)) d.caption = d.caption.join('\n\n');
+  d.caption = d.caption == null ? '' : String(d.caption).trim();
   for (const k of ['category', 'headline', 'subtitle', 'eyebrow', 'heading', 'date', 'slug']) {
     if (d[k] != null) d[k] = String(d[k]).trim();
   }
@@ -235,25 +420,31 @@ async function ensureFonts() {
   fontsReady = true;
 }
 
-function setStatus(msg, cls = '') { const el = $('status'); el.textContent = msg; el.className = cls; }
+function setStatus(key, cls = '', ...args) {
+  statusState = { key, args, cls };
+  const el = $('status');
+  el.textContent = key ? t(key, ...args) : '';
+  el.className = cls;
+}
 
 async function draw() {
   await ensureFonts();
   const raw = ta.value;
   localStorage.setItem(STORE, raw);
 
-  if (!raw.trim()) { data = null; setStatus('等待 JSON…'); blank(); return; }
+  if (!raw.trim()) { data = null; setStatus('waiting'); blank(); return; }
   try {
     data = normalize(parseJSON(raw));
   } catch (e) {
-    setStatus('JSON 解析失败：' + e.message + (lastGood ? '（下面仍显示上一次成功的内容）' : ''), 'err');
+    setStatus(lastGood ? 'parseErrKept' : 'parseErr', 'err', e.message);
     if (!lastGood) { blank(); return; }
     data = lastGood;
     paint();
     return;
   }
   lastGood = data;
-  setStatus('已就绪 · ' + (data.slug || slugify(data.headline)), 'ok');
+  setStatus('ready', 'ok', data.slug || slugify(data.headline));
+  syncCaption();
   paint();
 }
 
@@ -268,48 +459,100 @@ function blank() {
   $('btn-download').disabled = true;
 }
 
+let fit1 = null, fit2 = null;
 function paint() {
   const focus = +$('focus').value / 100;
-  const i1 = renderPhotoCard(c1, data, { photo: photoImg, logo: logoImg, focus });
-  const i2 = renderDarkCard(c2, data, { logo: logoImg });
-  $('m1').textContent = `标题 ${i1.headline}px · 副标 ${i1.subtitle}px` +
-    (i1.overflow ? ' · 已到最小字号仍溢出，请缩短文字' : '');
-  $('m1').className = 'meta' + (i1.overflow ? ' warn' : '');
-  $('m2').textContent = `大标 ${i2.heading}px · 要点 ${i2.bullets}px` +
-    (i2.overflow ? ` · 有要点占 ${i2.longest} 行，请缩短` : '');
-  $('m2').className = 'meta' + (i2.overflow ? ' warn' : '');
+  fit1 = renderPhotoCard(c1, data, { photo: photoImg, logo: logoImg, focus });
+  fit2 = renderDarkCard(c2, data, { logo: logoImg });
+  paintMeta();
   $('btn-download').disabled = false;
+}
+
+function paintMeta() {
+  if (!fit1 || !fit2) return;
+  $('m1').textContent = t('meta1', fit1.headline, fit1.subtitle) + (fit1.overflow ? t('meta1over') : '');
+  $('m1').className = 'meta' + (fit1.overflow ? ' warn' : '');
+  $('m2').textContent = t('meta2', fit2.heading, fit2.bullets) +
+    (fit2.overflow ? t('meta2over', fit2.longest) : '');
+  $('m2').className = 'meta' + (fit2.overflow ? ' warn' : '');
 }
 
 let timer;
 ta.addEventListener('input', () => { clearTimeout(timer); timer = setTimeout(draw, 180); });
-$('focus').addEventListener('input', () => {
+
+function setFocusLabel() {
   const v = +$('focus').value;
-  $('focus-val').textContent = v === 50 ? '居中' : (v < 50 ? `上移 ${50 - v}%` : `下移 ${v - 50}%`);
-  if (data) paint();
-});
+  $('focus-val').textContent = v === 50 ? t('focusCentre')
+    : (v < 50 ? t('focusUp', 50 - v) : t('focusDown', v - 50));
+}
+$('focus').addEventListener('input', () => { setFocusLabel(); if (data) paint(); });
+
+/* ---- caption ------------------------------------------------------- */
+// Only overwrite the box when the JSON actually carries a different caption,
+// so hand edits survive an unrelated re-parse.
+function syncCaption() {
+  const incoming = data.caption || '';
+  if (incoming !== captionFromJSON) {
+    captionFromJSON = incoming;
+    cap.value = incoming;
+  }
+  refreshCaptionUI();
+}
+
+function refreshCaptionUI() {
+  const text = cap.value.trim();
+  const n = cap.value.length;
+  $('count').textContent = t('chars', n);
+  $('count').className = n > CAP_LIMIT ? 'over' : '';
+
+  const problems = [];
+  if (text) {
+    if (n > CAP_LIMIT) problems.push(t('lintLong', n));
+    if (!text.includes(SIGNOFF)) problems.push(t('lintSignoff'));
+    if (!/^Photo:\s*\S+/m.test(text)) problems.push(t('lintPhoto'));
+    if (/(^|\s)#[A-Za-z0-9]/.test(text)) problems.push(t('lintHash'));
+    const hits = MARKETING.filter((w) => text.toLowerCase().includes(w));
+    if (hits.length) problems.push(t('lintMarketing', hits.join(', ')));
+    const body = text.split(/\n\s*\n/)
+      .filter((p) => p.trim() && !p.includes(SIGNOFF) && !/^Photo:/.test(p.trim()));
+    if (body.length && (body.length - 1 < 4 || body.length - 1 > 6)) {
+      problems.push(t('lintParas', body.length - 1));
+    }
+  }
+  $('lint').innerHTML = '';
+  for (const p of problems) {
+    const div = document.createElement('div');
+    div.textContent = '· ' + p;
+    $('lint').appendChild(div);
+  }
+}
+cap.addEventListener('input', refreshCaptionUI);
 
 /* ---- image intake -------------------------------------------------- */
+function drawDropEmpty() {
+  $('drop').innerHTML = `<strong>${t('dropMain')}</strong><span>${t('dropSub')}</span>`;
+}
+function drawDropLoaded() {
+  $('drop').innerHTML = `<span>${t('dropLoaded', photoImg.width, photoImg.height)}</span>`;
+}
+
 async function useImage(blobOrFile) {
   if (!blobOrFile || !blobOrFile.type.startsWith('image/')) return;
   const url = URL.createObjectURL(blobOrFile);
   try {
     photoImg = await loadImage(url);
-    const d = $('drop');
-    d.classList.add('has-img');
-    d.style.backgroundImage = `url(${url})`;
-    d.innerHTML = `<span>${photoImg.width}×${photoImg.height} · 再贴一张即可替换</span>`;
+    $('drop').classList.add('has-img');
+    $('drop').style.backgroundImage = `url(${url})`;
+    drawDropLoaded();
     if (data) paint();
-  } catch (_) { setStatus('图片读取失败', 'err'); }
+  } catch (_) { setStatus('imgFail', 'err'); }
 }
 
 function clearImage() {
   photoImg = null;
-  const d = $('drop');
-  d.classList.remove('has-img');
-  d.style.backgroundImage = '';
-  d.innerHTML = '<strong>点击选择 / 拖入 / Ctrl+V 粘贴</strong>' +
-    '<span>裁成 1080×600 顶部图；不放图则留灰底</span>';
+  $('drop').classList.remove('has-img');
+  $('drop').style.backgroundImage = '';
+  drawDropEmpty();
   if (data) paint();
 }
 
@@ -323,8 +566,8 @@ $('drop').addEventListener('drop', (e) => {
 $('file').addEventListener('change', (e) => useImage(e.target.files[0]));
 $('btn-clear-img').addEventListener('click', clearImage);
 
-// Paste anywhere — including inside the JSON box, where an image paste carries
-// no text and so must not be treated as JSON input.
+// Paste anywhere — including inside a text box, where an image paste carries
+// no text and so must not be treated as typing.
 window.addEventListener('paste', (e) => {
   const item = [...(e.clipboardData?.items || [])].find((i) => i.type.startsWith('image/'));
   if (item) { e.preventDefault(); useImage(item.getAsFile()); }
@@ -335,48 +578,47 @@ const toBlob = (canvas) => new Promise((res) => canvas.toBlob(res, 'image/png'))
 
 async function downloadBoth() {
   const slug = data.slug || slugify(data.headline);
-  const jobs = [[c1, `${slug}-1-photo.png`], [c2, `${slug}-2-dark.png`]];
-  for (const [canvas, name] of jobs) {
-    const blob = await toBlob(canvas);
+  const names = [`${slug}-1-photo.png`, `${slug}-2-dark.png`];
+  const canvases = [c1, c2];
+  for (let i = 0; i < 2; i++) {
+    const blob = await toBlob(canvases[i]);
     const a = document.createElement('a');
     a.href = URL.createObjectURL(blob);
-    a.download = name;
+    a.download = names[i];
     a.click();
     setTimeout(() => URL.revokeObjectURL(a.href), 4000);
     await new Promise((r) => setTimeout(r, 350));
   }
-  setStatus(`已下载 ${slug}-1-photo.png 和 ${slug}-2-dark.png`, 'ok');
+  setStatus('downloaded', 'ok', names[0], names[1]);
 }
 
 $('btn-download').addEventListener('click', () => {
   if (!data) return;
-  downloadBoth().catch((e) => setStatus('下载失败：' + e.message, 'err'));
+  downloadBoth().catch((e) => setStatus('downloadFail', 'err', e.message));
 });
+
+function flash(btn, key) {
+  btn.textContent = t('copied');
+  setTimeout(() => { btn.textContent = t(key); }, 1400);
+}
 
 document.querySelectorAll('[data-copy]').forEach((btn) => {
   btn.addEventListener('click', async () => {
     const canvas = btn.dataset.copy === '1' ? c1 : c2;
-    const old = btn.textContent;
     try {
-      if (!navigator.clipboard?.write) throw new Error('浏览器不支持写入剪贴板');
+      if (!navigator.clipboard?.write) throw new Error(t('noClipboard'));
       await navigator.clipboard.write([new ClipboardItem({ 'image/png': await toBlob(canvas) })]);
-      btn.textContent = '✓ 已复制';
-      setTimeout(() => (btn.textContent = old), 1400);
-    } catch (e) {
-      setStatus('复制失败：' + e.message + '（需在 https 或 localhost 下打开）', 'err');
-    }
+      flash(btn, btn.dataset.i18n);
+    } catch (e) { setStatus('copyFail', 'err', e.message); }
   });
 });
 
-async function copyText(text, btn) {
-  const old = btn.textContent;
-  try {
-    await navigator.clipboard.writeText(text);
-    btn.textContent = '✓ 已复制';
-    setTimeout(() => (btn.textContent = old), 1400);
-  } catch (_) { setStatus('复制失败，请手动选中复制', 'err'); }
+async function copyText(text, btn, key) {
+  try { await navigator.clipboard.writeText(text); flash(btn, key); }
+  catch (_) { setStatus('copyTextFail', 'err'); }
 }
-$('btn-prompt').addEventListener('click', (e) => copyText(PROMPT, e.target));
+$('btn-prompt').addEventListener('click', (e) => copyText(PROMPT, e.target, 'btnPrompt'));
+$('btn-caption').addEventListener('click', (e) => copyText(cap.value, e.target, 'btnCopyCaption'));
 $('btn-sample').addEventListener('click', () => {
   ta.value = JSON.stringify(SAMPLE, null, 2);
   draw();
@@ -397,10 +639,13 @@ $('btn-logo-reset').addEventListener('click', async () => {
 
 /* ---- boot ---------------------------------------------------------- */
 (async () => {
+  const q = new URLSearchParams(location.search);
+  if (q.get('lang') === 'zh' || q.get('lang') === 'en') lang = q.get('lang');
   $('brandmark').src = window.NDW_LOGO;
   logoImg = await loadImage(window.NDW_LOGO);
   ta.value = localStorage.getItem(STORE) || '';
-  if (new URLSearchParams(location.search).has('demo')) ta.value = JSON.stringify(SAMPLE, null, 2);
+  if (q.has('demo')) ta.value = JSON.stringify(SAMPLE, null, 2);
+  applyLang();
   blank();
   await draw();
   ta.focus();

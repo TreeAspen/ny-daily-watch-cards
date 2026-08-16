@@ -1,18 +1,20 @@
-# NY Daily Watch · Instagram 卡片生成器
+# NY Daily Watch · Instagram Card Generator
 
-把一条新闻做成两张 1080×1350 的 Instagram 卡片：图片卡 + 深色要点卡。
+Turns one news story into two 1080×1350 Instagram cards — a photo card and a dark bullet card — plus the post caption, from a single paste.
 
-**在线使用：** https://treeaspen.github.io/ny-daily-watch-cards/
+**Live:** https://treeaspen.github.io/ny-daily-watch-cards/
 
-## 用法（三步）
+Interface is English by default; the **中文** button in the top right switches it, and the choice is remembered. `?lang=zh` / `?lang=en` force one.
 
-1. **粘 JSON** —— 把整条新闻的 JSON 一次性粘进左边的文本框，卡片立刻更新。
-2. **贴图** —— 在页面任意位置按 `Ctrl+V` 贴上标题图（也可以拖入或点击选择）。
-3. **拿走** —— 点「一键下载两张 PNG」，或用每张卡下面的「复制」按钮直接 `Ctrl+V` 贴进 Instagram 网页版。
+## How to use
 
-文字会自动缩放换行；如果缩到最小字号还塞不下，卡片下方会用红字提示该缩短哪一段。
+1. **Paste the JSON** into the left box. Both cards render immediately and the `caption` field is lifted out into its own box under them.
+2. **Paste the photo** — press `Ctrl+V` anywhere on the page (dragging in or clicking the box also works).
+3. **Take it away** — *Download both PNGs*, *Copy card 1* / *Copy card 2* to paste straight into Instagram on the web, and *Copy caption*.
 
-## JSON 字段
+Card text auto-shrinks and re-wraps to fit. If it still will not fit at the minimum size, a red note under the card says which line to shorten. The caption box shows a live character count against Instagram's 2,200 limit and flags anything that breaks the house format.
+
+## JSON
 
 ```json
 {
@@ -22,80 +24,122 @@
   "subtitle": "New solar tariffs, signed Aug. 6 — but the real target is chips.",
   "eyebrow": "Why chips need solar",
   "heading": "Three things to know",
-  "bullets": [
-    "Chips use just 2.4% of the world's polysilicon. Solar uses nearly all the rest.",
-    "The U.S. had ~50% of global polysilicon capacity in 2005. Under 2% by 2024.",
-    "Price floors and a 15% tariff take effect Dec. 4."
-  ],
-  "date": "AUGUST 12, 2026"
+  "bullets": ["point one", "point two", "point three"],
+  "date": "AUGUST 12, 2026",
+  "caption": "Opening line.\n\nBody paragraph.\n\nRead more at @theNYdailywatch 's bio.\n\nPhoto: NY Daily Watch"
 }
 ```
 
-| 字段 | 用在哪 | 说明 |
+| Field | Where it lands | Notes |
 | --- | --- | --- |
-| `category` | 卡 1 左上金色标签 | 1–2 个词 |
-| `headline` | 卡 1 金色大标题 | 84px 起，塞不下自动缩到 52px |
-| `subtitle` | 卡 1 白色副标 | 46px 起，最小 30px |
-| `eyebrow` | 卡 2 顶部小字 | 固定 28px |
-| `heading` | 卡 2 金色大标题 | 默认 `Three things to know` |
-| `bullets` | 卡 2 要点列表 | 建议 3 条，每条最多 4 行 |
-| `date` | 两张卡左下角 | 建议 `AUGUST 12, 2026` 这种全大写写法 |
-| `slug` | 下载文件名 | 省略时按 headline 自动生成 |
+| `category` | card 1, gold tag | 1–2 words |
+| `headline` | card 1, gold headline | starts at 84px, shrinks to 52px if needed |
+| `subtitle` | card 1, white subtitle | starts at 46px, floor 30px |
+| `eyebrow` | card 2, small top line | fixed 28px |
+| `heading` | card 2, gold headline | defaults to `Three things to know` |
+| `bullets` | card 2, bullet list | three of them, four lines each at most |
+| `caption` | caption box, not on the cards | string, or an array of paragraphs |
+| `date` | bottom left of both cards | `AUGUST 12, 2026` style |
+| `slug` | download filenames | derived from the headline if absent |
 
-多余字段忽略，缺字段按空处理。粘进来的内容允许带 ` ```json ` 代码块标记或末尾多余逗号，会自动清掉。
+Unknown fields are ignored, missing ones render empty. Pasted text may carry ` ```json ` fences or trailing commas — both get cleaned up.
 
-页面上的「复制 AI 提示词」按钮会复制一段提示词，把新闻原文丢给任意大模型即可让它按上表输出 JSON。
+**Copy AI prompt** puts a prompt on your clipboard that asks any model for exactly this JSON, caption included. Paste the article under it and paste the reply straight back into the box.
 
-## 输出
+## Caption format
 
-- `<slug>-1-photo.png` —— 图片卡：顶部 1080×600 图片带 + 金色分类标签 + 大标题 + 副标
-- `<slug>-2-dark.png` —— 深色卡：小字 + 金色标题 + 圆点要点列表
+The prompt and the live checks both enforce the house format:
 
-标题图按 `cover` 方式裁进 1080×600；构图不合适时用「纵向裁切」滑块上下移动取景，不必回 Photoshop 重裁。
+- one opening line alone as its own paragraph — the only text above the fold
+- then 4–6 short paragraphs: mechanism, numbers, who said what, and the counterargument or what is unsettled
+- named agencies and companies, not "officials"; dates when the story is time-sensitive
+- ends with exactly `Read more at @theNYdailywatch 's bio.`
+- then a final `Photo: …` credit line
+- under 2,200 characters, no hashtags, no marketing words, no invented quotes
 
-## 本地运行
+The caption box is editable — hand edits survive re-parsing of the JSON, and are only replaced when the JSON supplies a different caption.
 
-页面用了 ES module，必须经 HTTP 打开，直接双击 `index.html` 会被浏览器的 file:// 限制挡住：
+## Output
+
+- `<slug>-1-photo.png` — photo band, gold category tag, headline, subtitle
+- `<slug>-2-dark.png` — eyebrow, gold heading, gold-dot bullet list
+
+The photo is `cover`-cropped into a 1080×600 band; the **Vertical crop** slider moves the framing up or down without a trip back to Photoshop.
+
+## Running it locally
+
+The page uses ES modules, so it has to be served over HTTP — double-clicking `index.html` hits the browser's file:// restrictions:
 
 ```bash
 python -m http.server 8000
-# 打开 http://127.0.0.1:8000/
+# open http://127.0.0.1:8000/
 ```
 
-「复制到剪贴板」需要 https 或 localhost 环境（浏览器限制）；GitHub Pages 上正常可用。下载按钮无此限制。
+Clipboard copy needs https or localhost (a browser rule); it works on GitHub Pages. Downloads have no such restriction.
 
-## Python 命令行版（可选）
+## Python CLI (optional)
 
-需要批量生成时用它，输出与网页版一致：
+For batch runs. Same layout, same output:
 
 ```bash
 pip install playwright && playwright install chromium
 python cards.py sample/story.json out/
 ```
 
-标题图通过 JSON 里的 `photo` 字段给本地文件路径。
+Point the JSON's `photo` field at a local file for the cover image.
 
-## 换 logo
+## Replacing the logo
 
-页面「高级设置 → 更换 logo」只对当前这次生成有效。要永久替换：
+The **Advanced → Replace logo** button only affects the current session. To change it for good:
 
 ```bash
-python tools/embed_logo.py 新logo.png     # 缩到 320px 并写回 assets/logo.png + logo.js
+python tools/embed_logo.py new-logo.png    # resizes to 320px, rewrites assets/logo.png and logo.js
 ```
 
-## 设计参数
+## Design tokens
 
-两个渲染器共用同一套参数（`assets/render.js` 的 `T` 与 `cards.py` 的 `T`），改版式时两边都要改：
+Both renderers share one set of numbers — `T` in [assets/render.js](assets/render.js) and `T` in [cards.py](cards.py). Change a layout value in both.
 
-画布 1080×1350，左右留白 92，图片带高 600，图片与标题间距 36，正文可用高度 554（到日期/logo 带为止），
-金色 `#EFC050`，底色 `#121212`，米色日期 `#EADFC2`，标题 Playfair Display 700，正文 Montserrat 300/400。
+1080×1350 canvas, 92px side margins, 600px photo band, 36px gap below it, 554px of usable body height (down to the date/logo band). Gold `#EFC050`, ink `#121212`, cream date `#EADFC2`. Playfair Display 700 for headlines, Montserrat 300/400 for body.
 
-字体自托管在 `assets/fonts/`（Playfair Display + Montserrat，来自 fontsource），不依赖 Google Fonts。
+Fonts are self-hosted in `assets/fonts/` (Playfair Display and Montserrat, from fontsource) and the logo is inlined, so the page fetches nothing at runtime — no Google Fonts, no CDN.
 
 ## tools/
 
-- `visual-check.html` —— 用示例和一个压力测试用例渲染两张卡，改版式后拿它回归对比
-- `dom-reference.html` —— `cards.py` 的 DOM 版复刻，用来验证 canvas 移植与 Playwright 输出一致
-- `embed_logo.py` —— 重新生成内嵌 logo
+- `visual-check.html` — renders both cards from the sample and from a long-text stress case; use it to eyeball regressions after a layout change
+- `dom-reference.html` — a DOM copy of `cards.py`, used to verify the canvas port matches the Playwright output
+- `embed_logo.py` — regenerates the inlined logo
 
-两个检查页都支持 `?case=stress` 切到超长文本用例。
+Both check pages take `?case=stress`.
+
+---
+
+# 中文说明
+
+把一条新闻做成两张 1080×1350 的 Instagram 卡片（图片卡 + 深色要点卡），外加正文 caption，全部来自一次粘贴。
+
+界面默认英文，右上角 **中文** 按钮切换，选择会被记住；也可以用 `?lang=zh` 直接指定。
+
+## 用法
+
+1. **粘 JSON** —— 粘进左边的框，两张卡立刻更新，JSON 里的 `caption` 字段会被单独提取到卡片下方的框里。
+2. **贴图** —— 在页面任意位置按 `Ctrl+V`（拖入或点击选择也行）。
+3. **拿走** —— 「一键下载两张 PNG」、每张卡的「复制」按钮（可直接 `Ctrl+V` 贴进 Instagram 网页版）、以及「复制 caption」。
+
+卡片文字会自动缩放换行；缩到最小字号仍塞不下时，卡片下方会用红字提示该缩短哪一段。caption 框实时显示字数（上限 2,200），并检查是否符合固定格式。
+
+## 字段
+
+见上方英文表格。`caption` 可以是字符串，也可以是段落数组。粘贴内容允许带 ` ```json ` 代码块标记或末尾多余逗号，会自动清掉。
+
+「复制 AI 提示词」会复制一段提示词，要求模型按这套 JSON 输出（含 caption 写作规范）。把新闻原文贴在提示词下面，再把回复整段粘回来即可。
+
+## caption 规范
+
+提示词和页面检查都按这套走：开场句单独成段（首屏唯一可见的文字）→ 4–6 个短段落（机制、数字、谁说了什么、反方观点或尚未定论之处）→ 点名具体机构或公司而非「officials」→ 时效性新闻带日期 → 结尾固定一句 `Read more at @theNYdailywatch 's bio.` → 最后一行 `Photo: …`。全文 2,200 字符以内，不用 hashtag，不用营销词，不编造引语。
+
+caption 框可以直接改；手改的内容不会被重新解析 JSON 覆盖，只有当 JSON 里的 caption 真的变了才会替换。
+
+## 本地运行与版式参数
+
+见上方英文章节。改版式时记住 `assets/render.js` 和 `cards.py` 两处的 `T` 要同步改。
