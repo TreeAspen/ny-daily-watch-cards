@@ -19,7 +19,10 @@
   h1{font:700 27px/1.2 'Playfair Display',serif;color:var(--gold)}
   header{display:flex;align-items:center;gap:14px;margin-bottom:6px}
   header img{width:44px;height:44px;border-radius:50%}
-  .langs{margin-left:auto;display:flex;gap:6px}
+  .langs{display:flex;gap:6px}
+  a.nav{margin-left:auto;color:var(--dim);text-decoration:none;font-size:13px;
+    border:1px solid var(--line);border-radius:7px;padding:9px 14px}
+  a.nav:hover{color:var(--gold);border-color:var(--gold)}
   .langs button{padding:7px 13px;font-size:12.5px}
   .langs button[aria-pressed=true]{border-color:var(--gold);color:var(--gold);background:#2b2416}
   .lede{color:var(--dim);font-size:13.5px;margin-bottom:24px}
@@ -95,6 +98,7 @@
 <header>
   <img id="brandmark" alt="">
   <h1 data-i18n="appTitle"></h1>
+  <a class="nav" href="studio.html" data-i18n="navStudio"></a>
   <div class="langs">
     <button id="lang-en" data-lang="en">English</button>
     <button id="lang-zh" data-lang="zh">中文</button>
@@ -186,6 +190,7 @@ const SIGNOFF = "Read more at @theNYdailywatch 's bio.";
 const STR = {
   en: {
     appTitle: 'NY Daily Watch · Card Generator',
+    navStudio: 'Studio · single cards, poster, video →',
     lede: 'Paste the whole story as JSON on the left → press <kbd>Ctrl</kbd>+<kbd>V</kbd> anywhere to drop in the cover photo → both 1080×1350 cards render live, ready to download or copy. The caption comes out of the same paste.',
     step1: '1 · Story JSON',
     btnPrompt: 'Copy AI prompt',
@@ -236,6 +241,7 @@ const STR = {
   },
   zh: {
     appTitle: 'NY Daily Watch · 卡片生成器',
+    navStudio: '工作台 · 单卡 / 海报 / 视频 →',
     lede: '把整条新闻的 JSON 粘进左边 → 在任意位置按 <kbd>Ctrl</kbd>+<kbd>V</kbd> 贴上标题图 → 右边两张 1080×1350 卡片实时更新，可直接下载或复制。caption 从同一次粘贴里提取。',
     step1: '1 · 新闻 JSON',
     btnPrompt: '复制 AI 提示词',

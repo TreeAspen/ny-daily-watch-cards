@@ -66,6 +66,26 @@ The caption box is editable — hand edits survive re-parsing of the JSON, and a
 
 The photo is `cover`-cropped into a 1080×600 band; the **Vertical crop** slider moves the framing up or down without a trip back to Photoshop.
 
+## Studio
+
+[studio.html](studio.html) — linked from the header — holds the pieces that are not the standard two-card post. It shares the language setting with the main page, and `Ctrl+V` drops an image into whichever tab is open.
+
+**Single card.** Either template on its own, each with its own prompt asking only for the fields that card uses — the photo card wants `category` / `headline` / `subtitle` / `date`, the bullet card wants `eyebrow` / `heading` / `bullets` / `date`. Neither prompt asks for a caption; use the main page when you need the whole post.
+
+**Poster 9:16.** A new format: a full-bleed centre-cropped photo at 1080×1920, one bold Montserrat line across the top, the date bottom left and the logo bottom right.
+
+```json
+{ "slug": "two-earlier-ai-companies",
+  "line": "Two earlier AI companies failed before this one.",
+  "date": "August 3, 2026" }
+```
+
+The line starts at 82px and gives up size — down to 44px — to land on two lines rather than three, so a normal sentence sets the way the reference does. **Show safe-zone guides** paints red over the strips TikTok and Reels cover with their own caption, buttons and tabs: 250px off the top, 430px off the bottom, 180px off the right. The line and the badge row both sit inside that box, and the guides never appear in the exported PNG.
+
+**Video.** Paste or drop several images, drag the thumbnails into order, and record a vertical slideshow — 30 seconds by default, split evenly across the slides, with a crossfade and a slow zoom on each. A 9:16 image fills the frame; anything else (a 1080×1350 card above all) is fitted inside the safe box over a blurred copy of itself. An **opening title** (2s: logo, wordmark, gold rule, date) and an **end card** (2.4s: logo, `READ MORE AT`, the handle, `LINK IN BIO`) are on by default and can be switched off.
+
+Recording is wall-clock bound — a 30s video takes 30s, because MediaRecorder encodes in real time — so leave the tab in front while it runs. Output is MP4 (H.264) in Chrome, Edge and Safari; Firefox can only produce WebM, which TikTok accepts and Instagram may not.
+
 ## Running it locally
 
 The page uses ES modules, so it has to be served over HTTP — double-clicking `index.html` hits the browser's file:// restrictions:
@@ -98,7 +118,7 @@ python tools/embed_logo.py new-logo.png    # resizes to 320px, rewrites assets/l
 
 ## Design tokens
 
-Both renderers share one set of numbers — `T` in [assets/render.js](assets/render.js) and `T` in [cards.py](cards.py). Change a layout value in both.
+The two card renderers share one set of numbers — `T` in [assets/render.js](assets/render.js) and `T` in [cards.py](cards.py). Change a layout value in both. The poster keeps its own tokens (`P`) and the shared `SAFE` box in `render.js`; the slideshow compositor lives in [assets/video.js](assets/video.js) and imports that same `SAFE`.
 
 1080×1350 canvas, 92px side margins, 600px photo band, 36px gap below it, 554px of usable body height (down to the date/logo band). Gold `#EFC050`, ink `#121212`, cream date `#EADFC2`. Playfair Display 700 for headlines, Montserrat 300/400 for body.
 
@@ -120,6 +140,11 @@ Both check pages take `?case=stress`.
 
 界面默认英文，右上角 **中文** 按钮切换，选择会被记住；也可以用 `?lang=zh` 直接指定。
 
+## 页面
+
+- [index.html](index.html)：整条帖子——两张卡片 + caption。
+- [studio.html](studio.html)：工作台——单张卡片、9:16 竖版海报、视频。顶部按钮互相跳转，语言设置共用。
+
 ## 用法
 
 1. **粘 JSON** —— 粘进左边的框，两张卡立刻更新，JSON 里的 `caption` 字段会被单独提取到卡片下方的框里。
@@ -133,6 +158,16 @@ Both check pages take `?case=stress`.
 见上方英文表格。`caption` 可以是字符串，也可以是段落数组。粘贴内容允许带 ` ```json ` 代码块标记或末尾多余逗号，会自动清掉。
 
 「复制 AI 提示词」会复制一段提示词，要求模型按这套 JSON 输出（含 caption 写作规范）。把新闻原文贴在提示词下面，再把回复整段粘回来即可。
+
+## 工作台三个功能
+
+**单张卡片**：两个模板各自独立，提示词也各自独立，只问自己用得到的字段（图片卡要 `category`/`headline`/`subtitle`/`date`，要点卡要 `eyebrow`/`heading`/`bullets`/`date`）。这两个提示词不含 caption，需要整条帖子请回主页。
+
+**竖版海报 9:16**：新版式。1080×1920 居中裁切满屏照片，顶部一行 Montserrat 粗体大字，日期左下、logo 右下。JSON 只要 `line` / `date` / `slug` 三个字段。文字从 82px 起，必要时降到 44px 以内，优先排成两行而不是三行。勾选「显示安全区参考线」会用红色标出 TikTok / Reels 会盖住的区域（上 250px、下 430px、右 180px），文字和日期 logo 都在安全区内，参考线不会导出到 PNG。
+
+**视频**：粘贴或拖入多张图，拖动缩略图排序，导出竖版幻灯片视频。默认 30 秒平均分给每张，带交叉淡入和缓慢推镜。9:16 的图铺满整屏，其他比例（比如 1080×1350 的卡片）会放进安全区并用自身的模糊版本垫底。片头（2 秒：logo + 刊名 + 金线 + 日期）和片尾（2.4 秒：logo + READ MORE AT + 账号 + LINK IN BIO）默认开启，可以关掉。
+
+录制按真实时间走——30 秒视频就要录 30 秒，因为 MediaRecorder 是实时编码——录制期间请保持本页在最前。Chrome / Edge / Safari 输出 MP4（H.264）；Firefox 只能输出 WebM，TikTok 收，Instagram 可能不收。
 
 ## caption 规范
 

@@ -247,12 +247,118 @@ export function renderDarkCard(canvas, d, { logo } = {}) {
   return { heading: hs, bullets: bs, overflow: L.bad, longest: L.longest, gap: Math.round(gap) };
 }
 
+/* ---- poster : 9:16 full bleed --------------------------------------- */
+/* Vertical format for Reels/TikTok. The platforms paint their own chrome over
+   the frame — caption and buttons at the bottom, tabs at the top, the action
+   rail down the right — so everything that has to be read lives inside SAFE. */
+export const SAFE = { top: 250, bottom: 430, left: 72, right: 180 };
+
+const P = {
+  W: 1080, H: 1920,
+  line_size: 82, line_min: 44, line_lh: 1.22, line_max: 3, line_want: 2, line_hunt: 28,
+  // The action rail only reaches the lower half of the frame, so the headline
+  // may run wider than the badge row below it.
+  text_right: 72,
+  logo: 96, date_size: 38,
+};
+
+export function renderPoster(canvas, d, { photo, logo, focus = 0.5, guides = false } = {}) {
+  const ctx = canvas.getContext('2d');
+  canvas.width = P.W; canvas.height = P.H;
+  ctx.textBaseline = 'alphabetic';
+  ctx.fillStyle = T.ink; ctx.fillRect(0, 0, P.W, P.H);
+
+  if (photo) coverDraw(ctx, photo, 0, 0, P.W, P.H, focus);
+  else { ctx.fillStyle = '#2A2A2A'; ctx.fillRect(0, 0, P.W, P.H); }
+
+  // Photos are unpredictable behind white type, so both ends of the frame get
+  // a scrim: enough to hold the text, light enough to keep the picture.
+  const top = ctx.createLinearGradient(0, 0, 0, P.H * 0.46);
+  top.addColorStop(0, 'rgba(0,0,0,0.62)');
+  top.addColorStop(1, 'rgba(0,0,0,0)');
+  ctx.fillStyle = top; ctx.fillRect(0, 0, P.W, P.H * 0.46);
+  const bot = ctx.createLinearGradient(0, P.H * 0.74, 0, P.H);
+  bot.addColorStop(0, 'rgba(0,0,0,0)');
+  bot.addColorStop(1, 'rgba(0,0,0,0.72)');
+  ctx.fillStyle = bot; ctx.fillRect(0, P.H * 0.74, P.W, P.H * 0.26);
+
+  const text = String(d.line || d.headline || '').trim();
+  const colW = P.W - SAFE.left - P.text_right;
+  const maxH = P.H - SAFE.top - SAFE.bottom;
+
+  // Set big and let it wrap; shrink only when the block runs past three lines
+  // or out of the safe box.
+  const fit = (s) => { ctx.font = font(700, s, 'Montserrat'); return wrap(ctx, text, colW); };
+  const lineCount = (s) => fit(s).length;
+  let size = P.line_size;
+  while (size > P.line_min &&
+         (lineCount(size) > P.line_max || lineCount(size) * size * P.line_lh > maxH)) size -= 1;
+  // Two big lines read better than three tight ones, so give up a little size
+  // to get there — but only a little, and never below the floor.
+  if (lineCount(size) > P.line_want) {
+    for (let s = size - 1; s >= Math.max(P.line_min, size - P.line_hunt); s -= 1) {
+      if (lineCount(s) <= P.line_want) { size = s; break; }
+    }
+  }
+  const lines = fit(size);
+
+  if (text) {
+    ctx.save();
+    ctx.shadowColor = 'rgba(0,0,0,0.55)';
+    ctx.shadowBlur = 26; ctx.shadowOffsetY = 3;
+    ctx.fillStyle = T.white;
+    ctx.font = font(700, size, 'Montserrat');
+    drawLines(ctx, lines, SAFE.left, SAFE.top, size, P.line_lh);
+    ctx.restore();
+  }
+
+  // Date and logo sit on the floor of the safe box, not the floor of the
+  // frame — below that line the app's own caption covers them.
+  const floor = P.H - SAFE.bottom;
+  const date = (d.date || '').trim();
+  if (date) {
+    ctx.save();
+    ctx.shadowColor = 'rgba(0,0,0,0.5)'; ctx.shadowBlur = 18;
+    ctx.fillStyle = T.cream;
+    ctx.font = font(400, P.date_size, 'Playfair Display');
+    ctx.fillText(date, SAFE.left, floor);
+    ctx.restore();
+  }
+  if (logo) {
+    const s = P.logo, x = P.W - SAFE.right - s, y = floor - s;
+    ctx.save();
+    ctx.beginPath(); ctx.arc(x + s / 2, y + s / 2, s / 2, 0, Math.PI * 2); ctx.clip();
+    const scale = Math.min(s / logo.width, s / logo.height);
+    ctx.drawImage(logo, x + (s - logo.width * scale) / 2, y + (s - logo.height * scale) / 2,
+      logo.width * scale, logo.height * scale);
+    ctx.restore();
+  }
+
+  if (guides) drawGuides(ctx);
+  return { size, lines: lines.length, overflow: lines.length > P.line_max };
+}
+
+/* Preview-only overlay: red where the app's own UI lands. */
+function drawGuides(ctx) {
+  ctx.save();
+  ctx.fillStyle = 'rgba(224,101,91,0.24)';
+  ctx.fillRect(0, 0, P.W, SAFE.top);
+  ctx.fillRect(0, P.H - SAFE.bottom, P.W, SAFE.bottom);
+  ctx.fillRect(P.W - SAFE.right, SAFE.top, SAFE.right, P.H - SAFE.top - SAFE.bottom);
+  ctx.fillRect(0, SAFE.top, SAFE.left, P.H - SAFE.top - SAFE.bottom);
+  ctx.strokeStyle = 'rgba(255,255,255,0.9)';
+  ctx.setLineDash([18, 14]); ctx.lineWidth = 3;
+  ctx.strokeRect(SAFE.left, SAFE.top, P.W - SAFE.left - SAFE.right, P.H - SAFE.top - SAFE.bottom);
+  ctx.restore();
+}
+
 export const TOKENS = T;
+export const POSTER_TOKENS = P;
 
 export const FONT_SPECS = [
   '400 34px "Playfair Display"', '700 84px "Playfair Display"',
   '300 64px "Montserrat"', '400 46px "Montserrat"',
-  '600 21px "Montserrat"', '700 21px "Montserrat"',
+  '600 21px "Montserrat"', '700 21px "Montserrat"', '700 80px "Montserrat"',
 ];
 
 export function loadImage(src) {
