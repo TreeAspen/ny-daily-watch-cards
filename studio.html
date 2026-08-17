@@ -69,6 +69,10 @@
   input[type=range]{flex:1;accent-color:var(--gold)}
   input[type=number]{width:76px;background:#131313;color:var(--text);border:1px solid var(--line);
     border-radius:6px;padding:8px 10px;font:400 13px 'Montserrat'}
+  select{background:#131313;color:var(--text);border:1px solid var(--line);border-radius:6px;
+    padding:8px 10px;font:400 13px 'Montserrat';cursor:pointer}
+  select:focus{outline:none;border-color:var(--gold)}
+  .row label[for]{font-size:13px;color:var(--dim)}
   label.check{display:flex;align-items:center;gap:7px;font-size:13px;color:var(--dim);cursor:pointer}
   label.check input{accent-color:var(--gold);width:16px;height:16px}
 
@@ -239,8 +243,12 @@
             <span data-i18n="withIntro"></span></label>
           <label class="check"><input type="checkbox" id="v-outro" checked>
             <span data-i18n="withOutro"></span></label>
-          <label class="check"><input type="checkbox" id="v-zoom" checked>
-            <span data-i18n="withZoom"></span></label>
+        </div>
+        <div class="row" style="margin-top:14px">
+          <label for="v-motion" data-i18n="motionLabel"></label>
+          <select id="v-motion"></select>
+          <label for="v-trans" data-i18n="transLabel"></label>
+          <select id="v-trans"></select>
         </div>
         <div class="row slider">
           <label for="v-scrub" data-i18n="scrub"></label>
@@ -271,7 +279,8 @@
 <script src="assets/logo.js"></script>
 <script type="module">
 import { renderPhotoCard, renderDarkCard, renderPoster, FONT_SPECS, loadImage } from './assets/render.js';
-import { drawFrame, drawIntro, recordVideo, pickMime, V } from './assets/video.js';
+import { drawFrame, drawIntro, recordVideo, pickMime, MOTIONS, TRANSITIONS, V }
+  from './assets/video.js';
 
 const $ = (id) => document.getElementById(id);
 const LANG_STORE = 'ndw-cards-lang';
@@ -318,7 +327,12 @@ const STR = {
     noSlides: 'No slides yet',
     withIntro: 'Opening title',
     withOutro: 'End card',
-    withZoom: 'Slow zoom',
+    motionLabel: 'Motion',
+    transLabel: 'Transition',
+    motion_none: 'Still', motion_in: 'Push in', motion_out: 'Pull out',
+    motion_alternate: 'Push / pull, alternating', motion_drift: 'Drift up',
+    trans_crossfade: 'Crossfade', trans_cut: 'Hard cut',
+    trans_black: 'Through black', trans_push: 'Push up',
     scrub: 'Preview',
     btnPlay: 'Play', btnPause: 'Pause',
     stepRender: 'Render',
@@ -383,7 +397,12 @@ const STR = {
     noSlides: '还没有素材',
     withIntro: '片头',
     withOutro: '片尾',
-    withZoom: '缓慢推镜',
+    motionLabel: '画面动效',
+    transLabel: '转场',
+    motion_none: '静止', motion_in: '缓慢推近', motion_out: '缓慢拉远',
+    motion_alternate: '推近 / 拉远交替', motion_drift: '缓慢上移',
+    trans_crossfade: '交叉淡入', trans_cut: '硬切',
+    trans_black: '黑场过渡', trans_push: '向上推移',
     scrub: '预览',
     btnPlay: '播放', btnPause: '暂停',
     stepRender: '导出',
@@ -747,7 +766,8 @@ const INTRO_S = 2.0, OUTRO_S = 2.4;
 const videoOpts = () => ({
   total: +$('v-secs').value,
   fade: 0.6,
-  zoom: $('v-zoom').checked,
+  motion: $('v-motion').value,
+  transition: $('v-trans').value,
   intro: $('v-intro').checked ? INTRO_S : 0,
   outro: $('v-outro').checked ? OUTRO_S : 0,
   brand: {
@@ -859,7 +879,7 @@ $('v-clear').addEventListener('click', () => {
   paintVideoAt(0);
 });
 
-for (const id of ['v-secs', 'v-intro', 'v-outro', 'v-zoom']) {
+for (const id of ['v-secs', 'v-intro', 'v-outro', 'v-motion', 'v-trans']) {
   $(id).addEventListener('input', () => { updateVideoMeta(); paintVideoAt(+$('v-scrub').value / 1000); });
 }
 $('v-scrub').addEventListener('input', () => { stopPlay(); paintVideoAt(+$('v-scrub').value / 1000); });
@@ -948,6 +968,19 @@ window.addEventListener('paste', (e) => {
   else setSinglePhoto(files);
 });
 
+/* Options carry translated labels, so they are rebuilt on a language switch —
+   keeping whatever was selected. */
+function fillSelect(el, values, prefix, fallback) {
+  const keep = el.value || fallback;
+  el.innerHTML = '';
+  for (const v of values) {
+    const o = document.createElement('option');
+    o.value = v; o.textContent = t(prefix + v);
+    el.appendChild(o);
+  }
+  el.value = keep;
+}
+
 const focusText = (v) => {
   v = +v;
   return v === 50 ? t('focusCentre') : (v < 50 ? t('focusUp', 50 - v) : t('focusDown', v - 50));
@@ -968,6 +1001,8 @@ function applyLang() {
   $('p-focus-val').textContent = focusText($('p-focus').value);
   $('tpl-hint').textContent = single.tpl === 'photo' ? t('hintPhoto') : t('hintDark');
   $('v-play').textContent = video.playing ? t('btnPause') : t('btnPlay');
+  fillSelect($('v-motion'), MOTIONS, 'motion_', 'alternate');
+  fillSelect($('v-trans'), TRANSITIONS, 'trans_', 'crossfade');
   ['s-status', 'p-status', 'v-status'].forEach((id) => restatus($(id)));
   updateVideoMeta();
   if (single.data) paintSingle();

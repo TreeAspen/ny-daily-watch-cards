@@ -27,19 +27,44 @@ export const extFor = (mime) => (mime && mime.startsWith('video/mp4') ? 'mp4' : 
 
 const ease = (t) => (t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2);
 
+/* ---- motion and transitions ------------------------------------------ */
+export const MOTIONS = ['none', 'in', 'out', 'alternate', 'drift'];
+export const TRANSITIONS = ['crossfade', 'cut', 'black', 'push'];
+
+const TRAVEL = 0.055;   // how far a push/pull moves, as a fraction of size
+
+/* The transform for slide `i` at progress `k` (0→1 across its own time). */
+function motionAt(kind, i, k) {
+  const e = ease(Math.max(0, Math.min(1, k)));
+  switch (kind) {
+    case 'in': return { zoom: 1 + TRAVEL * e, dy: 0 };
+    case 'out': return { zoom: 1 + TRAVEL * (1 - e), dy: 0 };
+    // Alternating keeps a long reel from feeling like one repeated move.
+    case 'alternate': return i % 2
+      ? { zoom: 1 + TRAVEL * (1 - e), dy: 0 }
+      : { zoom: 1 + TRAVEL * e, dy: 0 };
+    // A little zoom is held back so the drift never exposes an edge.
+    case 'drift': return { zoom: 1 + TRAVEL * 0.7, dy: (0.5 - e) * 30 };
+    default: return { zoom: 1, dy: 0 };
+  }
+}
+
 /* Every slide runs the full width of the frame — no side bars, ever. A still
    tall enough to fill the height is simply cropped to it; a shorter one (a 4:5
    card above all) keeps its full width and leaves blurred bands above and
    below. Those bands are not centred on the frame but on the safe strip, which
    lifts the picture clear of the app's own caption without narrowing it. */
-function drawSlide(ctx, img, zoom, alpha) {
+function drawSlide(ctx, img, m, alpha) {
   ctx.save();
   ctx.globalAlpha = alpha;
-
+  const { zoom, dy } = m;
   const fullH = (img.height / img.width) * V.W;
 
   if (fullH >= V.H - 2) {
+    ctx.save();
+    ctx.translate(0, dy);
     cover(ctx, img, 0, 0, V.W, V.H, zoom);
+    ctx.restore();
   } else {
     ctx.save();
     ctx.filter = 'blur(48px) brightness(0.42)';
@@ -48,7 +73,7 @@ function drawSlide(ctx, img, zoom, alpha) {
 
     const w = V.W * zoom, h = fullH * zoom;
     const safeH = V.H - SAFE.top - SAFE.bottom;
-    const y = Math.max(0, Math.min(V.H - h, SAFE.top + (safeH - h) / 2));
+    const y = Math.max(0, Math.min(V.H - h, SAFE.top + (safeH - h) / 2)) + dy;
     ctx.drawImage(img, (V.W - w) / 2, y, w, h);
   }
   ctx.restore();
@@ -184,7 +209,11 @@ export function drawOutro(ctx, p, brand = {}, alpha = 1) {
 /* Paints the frame at time `t` seconds. Exported so the page can scrub a
    preview through the same code the recorder runs. */
 export function drawFrame(ctx, slides, t, opts) {
-  const { total, fade = 0.6, zoom = true, intro = 0, outro = 0, brand } = opts;
+  const { total, intro = 0, outro = 0, brand } = opts;
+  const motion = opts.motion ?? (opts.zoom === false ? 'none' : 'in');
+  const transition = opts.transition || 'crossfade';
+  // A cut is a crossfade with no time in it, so the boundaries fall out free.
+  const fade = transition === 'cut' ? 0 : (opts.fade ?? 0.6);
   const body = Math.max(0.2, total - intro - outro);
 
   ctx.fillStyle = INK;
@@ -196,7 +225,7 @@ export function drawFrame(ctx, slides, t, opts) {
   }
 
   const per = body / slides.length;
-  const grow = (k) => (zoom ? 1 + 0.055 * ease(Math.min(1, k / per)) : 1);
+  const m = (i, local) => motionAt(motion, i, local / per);
 
   // The outro's own clock starts while the last slide is still fading out, so
   // the animation does not restart when the crossfade finishes.
@@ -206,19 +235,41 @@ export function drawFrame(ctx, slides, t, opts) {
   if (t < intro) {
     drawIntro(ctx, clamp01(t / intro), brand);
     const rem = intro - t;
-    if (rem < fade) drawSlide(ctx, slides[0], grow(0), 1 - rem / fade);
+    if (rem < fade) drawSlide(ctx, slides[0], m(0, 0), 1 - rem / fade);
     return;
   }
 
   const st = Math.min(t - intro, body);
   const i = Math.min(slides.length - 1, Math.floor(st / per));
   const local = st - i * per;
-  drawSlide(ctx, slides[i], grow(local), 1);
-
   const next = slides[i + 1];
-  if (next && fade > 0 && local > per - fade) {
-    drawSlide(ctx, next, grow(0), (local - (per - fade)) / fade);
+  const turning = next && fade > 0 && local > per - fade;
+  const u = turning ? (local - (per - fade)) / fade : 0;
+
+  if (turning && transition === 'black') {
+    // Out to black, then in from black — one half of the window each.
+    if (u < 0.5) {
+      drawSlide(ctx, slides[i], m(i, local), 1);
+      ctx.save();
+      ctx.globalAlpha = u * 2;
+      ctx.fillStyle = INK; ctx.fillRect(0, 0, V.W, V.H);
+      ctx.restore();
+    } else {
+      drawSlide(ctx, next, m(i + 1, 0), (u - 0.5) * 2);
+    }
+  } else if (turning && transition === 'push') {
+    const e = ease(u);
+    ctx.save(); ctx.translate(0, -V.H * e);
+    drawSlide(ctx, slides[i], m(i, local), 1);
+    ctx.restore();
+    ctx.save(); ctx.translate(0, V.H * (1 - e));
+    drawSlide(ctx, next, m(i + 1, 0), 1);
+    ctx.restore();
+  } else {
+    drawSlide(ctx, slides[i], m(i, local), 1);
+    if (turning) drawSlide(ctx, next, m(i + 1, 0), u);
   }
+
   if (outro) {
     const a = clamp01((t - outroAt) / fade);
     if (a > 0) drawOutro(ctx, outroP, brand, a);

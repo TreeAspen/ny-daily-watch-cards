@@ -82,7 +82,7 @@ The photo is `cover`-cropped into a 1080×600 band; the **Vertical crop** slider
 
 The line starts at 82px and gives up size — down to 44px — to land on two lines rather than three, so a normal sentence sets the way the reference does. **Show safe-zone guides** paints red over the strips TikTok and Reels cover with their own caption, buttons and tabs: 250px off the top, 430px off the bottom, 180px off the right. The line and the badge row both sit inside that box, and the guides never appear in the exported PNG.
 
-**Video.** Paste or drop several images, drag the thumbnails into order, and record a vertical slideshow — 30 seconds by default, split evenly across the slides, with a crossfade and a slow zoom on each. An **opening title** (2s: logo, wordmark, gold rule, date) and an **end card** (2.4s: logo, `READ MORE AT`, the handle, `LINK IN BIO`) are on by default and can be switched off.
+**Video.** Paste or drop several images, drag the thumbnails into order, and record a vertical slideshow — 30 seconds by default, split evenly across the slides. **Motion** sets what each slide does: still, push in, pull out, alternating (the default — a long reel stops feeling like one repeated move), or a slow upward drift. **Transition** sets the handover: crossfade, hard cut, through black, or push up. An **opening title** (2s: logo, wordmark, gold rule, date) and an **end card** (2.4s: logo, `READ MORE AT`, the handle, `LINK IN BIO`) are on by default and can be switched off.
 
 Every slide runs the full width of the frame — never pillarboxed. A 9:16 still fills the height too; anything shorter keeps its full width and leaves blurred bands above and below, sitting a little high in the frame so the app's own caption covers blur rather than picture.
 
@@ -167,7 +167,7 @@ Both check pages take `?case=stress`.
 
 **竖版海报 9:16**：新版式。1080×1920 居中裁切满屏照片，顶部一行 Montserrat 粗体大字，日期左下、logo 右下。JSON 只要 `line` / `date` / `slug` 三个字段。文字从 82px 起，必要时降到 44px 以内，优先排成两行而不是三行。勾选「显示安全区参考线」会用红色标出 TikTok / Reels 会盖住的区域（上 250px、下 430px、右 180px），文字和日期 logo 都在安全区内，参考线不会导出到 PNG。
 
-**视频**：粘贴或拖入多张图，拖动缩略图排序，导出竖版幻灯片视频。默认 30 秒平均分给每张，带交叉淡入和缓慢推镜。片头（2 秒：logo + 刊名 + 金线 + 日期）和片尾（2.4 秒：logo + READ MORE AT + 账号 + LINK IN BIO）默认开启，可以关掉。
+**视频**：粘贴或拖入多张图，拖动缩略图排序，导出竖版幻灯片视频。默认 30 秒平均分给每张。「画面动效」选每张图自己怎么动：静止、缓慢推近、缓慢拉远、推近/拉远交替（默认，多张连播不会显得一直在重复同一个动作）、缓慢上移。「转场」选两张之间怎么切：交叉淡入、硬切、黑场过渡、向上推移。片头（2 秒：logo + 刊名 + 金线 + 日期）和片尾（2.4 秒：logo + READ MORE AT + 账号 + LINK IN BIO）默认开启，可以关掉。
 
 每张图都横向满屏，两侧不留黑边。9:16 的图连高度一起铺满；比例更矮的保持满宽，只在上下留模糊填充，并且整体略微上移，让平台的文案盖住模糊带而不是画面本身。
 
