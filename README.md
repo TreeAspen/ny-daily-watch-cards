@@ -33,8 +33,8 @@ Card text auto-shrinks and re-wraps to fit. If it still will not fit at the mini
 | Field | Where it lands | Notes |
 | --- | --- | --- |
 | `category` | card 1, gold tag | the first one or two words of the pasted story, verbatim |
-| `headline` | card 1, gold headline | starts at 84px, shrinks to 52px if needed |
-| `subtitle` | card 1, white subtitle | starts at 46px, floor 30px |
+| `headline` | card 1, gold headline | the source headline as written; starts at 84px, shrinks to 52px if needed |
+| `subtitle` | card 1, white subtitle | one sentence under 10 words; starts at 46px, floor 30px |
 | `eyebrow` | card 2, small top line | fixed 28px |
 | `heading` | card 2, gold headline | defaults to `Three things to know` |
 | `bullets` | card 2, bullet list | three of them, four lines each at most |
