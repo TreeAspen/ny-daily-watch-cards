@@ -26,17 +26,19 @@ export function pickMime() {
 export const extFor = (mime) => (mime && mime.startsWith('video/mp4') ? 'mp4' : 'webm');
 
 const ease = (t) => (t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2);
-const PORTRAIT = V.W / V.H;
 
-/* A 9:16 still is already framed for the format, so it fills the frame. Any
-   other shape — a 4:5 card above all — sits inside the safe box over a blurred
-   copy of itself, which beats black bars and keeps its text clear of the UI. */
+/* Every slide runs the full width of the frame — no side bars, ever. A still
+   tall enough to fill the height is simply cropped to it; a shorter one (a 4:5
+   card above all) keeps its full width and leaves blurred bands above and
+   below. Those bands are not centred on the frame but on the safe strip, which
+   lifts the picture clear of the app's own caption without narrowing it. */
 function drawSlide(ctx, img, zoom, alpha) {
-  const aspect = img.width / img.height;
   ctx.save();
   ctx.globalAlpha = alpha;
 
-  if (Math.abs(aspect - PORTRAIT) < 0.02) {
+  const fullH = (img.height / img.width) * V.W;
+
+  if (fullH >= V.H - 2) {
     cover(ctx, img, 0, 0, V.W, V.H, zoom);
   } else {
     ctx.save();
@@ -44,11 +46,10 @@ function drawSlide(ctx, img, zoom, alpha) {
     cover(ctx, img, -60, -60, V.W + 120, V.H + 120, 1.06);
     ctx.restore();
 
-    const boxW = V.W - 2 * 60;
-    const boxH = V.H - SAFE.top - SAFE.bottom;
-    const scale = Math.min(boxW / img.width, boxH / img.height) * zoom;
-    const w = img.width * scale, h = img.height * scale;
-    ctx.drawImage(img, (V.W - w) / 2, SAFE.top + (boxH - h) / 2, w, h);
+    const w = V.W * zoom, h = fullH * zoom;
+    const safeH = V.H - SAFE.top - SAFE.bottom;
+    const y = Math.max(0, Math.min(V.H - h, SAFE.top + (safeH - h) / 2));
+    ctx.drawImage(img, (V.W - w) / 2, y, w, h);
   }
   ctx.restore();
 }
@@ -240,10 +241,12 @@ export async function recordVideo(canvas, slides, opts, onProgress, shouldStop) 
   rec.start(200);
   const started = performance.now();
 
+  let cancelled = false;
   await new Promise((res) => {
     const tick = () => {
+      if (shouldStop?.()) { cancelled = true; res(); return; }
       const t = (performance.now() - started) / 1000;
-      if (t >= opts.total || shouldStop?.()) { res(); return; }
+      if (t >= opts.total) { res(); return; }
       drawFrame(ctx, slides, t, opts);
       onProgress?.(t / opts.total);
       requestAnimationFrame(tick);
@@ -251,11 +254,18 @@ export async function recordVideo(canvas, slides, opts, onProgress, shouldStop) 
     requestAnimationFrame(tick);
   });
 
+  if (cancelled) {
+    rec.stop();
+    stream.getTracks().forEach((tr) => tr.stop());
+    await done;                      // let the recorder release before returning
+    return { cancelled: true };
+  }
+
   // Hold the last frame briefly so the final slide is not cut mid-fade.
   drawFrame(ctx, slides, Math.max(0, opts.total - 0.01), opts);
   await new Promise((r) => setTimeout(r, 260));
   rec.stop();
   stream.getTracks().forEach((tr) => tr.stop());
   onProgress?.(1);
-  return { blob: await done, mime, ext: extFor(mime) };
+  return { blob: await done, mime, ext: extFor(mime), cancelled: false };
 }

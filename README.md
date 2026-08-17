@@ -82,9 +82,11 @@ The photo is `cover`-cropped into a 1080×600 band; the **Vertical crop** slider
 
 The line starts at 82px and gives up size — down to 44px — to land on two lines rather than three, so a normal sentence sets the way the reference does. **Show safe-zone guides** paints red over the strips TikTok and Reels cover with their own caption, buttons and tabs: 250px off the top, 430px off the bottom, 180px off the right. The line and the badge row both sit inside that box, and the guides never appear in the exported PNG.
 
-**Video.** Paste or drop several images, drag the thumbnails into order, and record a vertical slideshow — 30 seconds by default, split evenly across the slides, with a crossfade and a slow zoom on each. A 9:16 image fills the frame; anything else (a 1080×1350 card above all) is fitted inside the safe box over a blurred copy of itself. An **opening title** (2s: logo, wordmark, gold rule, date) and an **end card** (2.4s: logo, `READ MORE AT`, the handle, `LINK IN BIO`) are on by default and can be switched off.
+**Video.** Paste or drop several images, drag the thumbnails into order, and record a vertical slideshow — 30 seconds by default, split evenly across the slides, with a crossfade and a slow zoom on each. An **opening title** (2s: logo, wordmark, gold rule, date) and an **end card** (2.4s: logo, `READ MORE AT`, the handle, `LINK IN BIO`) are on by default and can be switched off.
 
-Recording is wall-clock bound — a 30s video takes 30s, because MediaRecorder encodes in real time — so leave the tab in front while it runs. Output is MP4 (H.264) in Chrome, Edge and Safari; Firefox can only produce WebM, which TikTok accepts and Instagram may not.
+Every slide runs the full width of the frame — never pillarboxed. A 9:16 still fills the height too; anything shorter keeps its full width and leaves blurred bands above and below, sitting a little high in the frame so the app's own caption covers blur rather than picture.
+
+Recording is wall-clock bound — a 30s video takes 30s, because MediaRecorder encodes in real time — so leave the tab in front while it runs. **Cancel** aborts and writes nothing. Output is MP4 (H.264) in Chrome, Edge and Safari; Firefox can only produce WebM, which TikTok accepts and Instagram may not.
 
 ## Running it locally
 
@@ -165,9 +167,11 @@ Both check pages take `?case=stress`.
 
 **竖版海报 9:16**：新版式。1080×1920 居中裁切满屏照片，顶部一行 Montserrat 粗体大字，日期左下、logo 右下。JSON 只要 `line` / `date` / `slug` 三个字段。文字从 82px 起，必要时降到 44px 以内，优先排成两行而不是三行。勾选「显示安全区参考线」会用红色标出 TikTok / Reels 会盖住的区域（上 250px、下 430px、右 180px），文字和日期 logo 都在安全区内，参考线不会导出到 PNG。
 
-**视频**：粘贴或拖入多张图，拖动缩略图排序，导出竖版幻灯片视频。默认 30 秒平均分给每张，带交叉淡入和缓慢推镜。9:16 的图铺满整屏，其他比例（比如 1080×1350 的卡片）会放进安全区并用自身的模糊版本垫底。片头（2 秒：logo + 刊名 + 金线 + 日期）和片尾（2.4 秒：logo + READ MORE AT + 账号 + LINK IN BIO）默认开启，可以关掉。
+**视频**：粘贴或拖入多张图，拖动缩略图排序，导出竖版幻灯片视频。默认 30 秒平均分给每张，带交叉淡入和缓慢推镜。片头（2 秒：logo + 刊名 + 金线 + 日期）和片尾（2.4 秒：logo + READ MORE AT + 账号 + LINK IN BIO）默认开启，可以关掉。
 
-录制按真实时间走——30 秒视频就要录 30 秒，因为 MediaRecorder 是实时编码——录制期间请保持本页在最前。Chrome / Edge / Safari 输出 MP4（H.264）；Firefox 只能输出 WebM，TikTok 收，Instagram 可能不收。
+每张图都横向满屏，两侧不留黑边。9:16 的图连高度一起铺满；比例更矮的保持满宽，只在上下留模糊填充，并且整体略微上移，让平台的文案盖住模糊带而不是画面本身。
+
+录制按真实时间走——30 秒视频就要录 30 秒，因为 MediaRecorder 是实时编码——录制期间请保持本页在最前。中途点「取消」会直接中断，不会产出任何文件。Chrome / Edge / Safari 输出 MP4（H.264）；Firefox 只能输出 WebM，TikTok 收，Instagram 可能不收。
 
 ## caption 规范
 

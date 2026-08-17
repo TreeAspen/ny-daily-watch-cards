@@ -253,7 +253,7 @@
         <div class="label"><span data-i18n="stepRender"></span></div>
         <div class="row">
           <button class="primary" id="v-render" data-i18n="btnRender"></button>
-          <button id="v-stop" data-i18n="btnStop" hidden></button>
+          <button id="v-cancel" data-i18n="btnCancel" hidden></button>
         </div>
         <progress id="v-prog" value="0" max="1" hidden></progress>
         <div class="status" id="v-status"></div>
@@ -323,7 +323,8 @@ const STR = {
     btnPlay: 'Play', btnPause: 'Pause',
     stepRender: 'Render',
     btnRender: '● Record video',
-    btnStop: 'Stop',
+    btnCancel: 'Cancel',
+    cancelled: 'Recording cancelled — nothing was saved.',
     renderNote: 'Recording runs in real time — a 30s video takes 30s. Keep this tab in front; a background tab throttles the frame rate and the video comes out stuttering.',
     recording: (a, b) => `Recording ${a}s / ${b}s…`,
     rendered: (name, mb) => `Saved ${name} · ${mb} MB`,
@@ -387,7 +388,8 @@ const STR = {
     btnPlay: '播放', btnPause: '暂停',
     stepRender: '导出',
     btnRender: '● 录制视频',
-    btnStop: '停止',
+    btnCancel: '取消',
+    cancelled: '已取消录制，没有保存任何文件。',
     renderNote: '录制按真实时间进行——30 秒的视频就要录 30 秒。录制期间请让本页保持在最前，切到后台会掉帧，视频会卡顿。',
     recording: (a, b) => `录制中 ${a}s / ${b}s…`,
     rendered: (name, mb) => `已保存 ${name} · ${mb} MB`,
@@ -891,11 +893,11 @@ $('v-render').addEventListener('click', async () => {
   stopPlay();
   video.recording = true;
   $('v-render').disabled = true;
-  $('v-stop').hidden = false;
+  $('v-cancel').hidden = false;
   $('v-prog').hidden = false;
   const o = videoOpts();
   try {
-    const { blob, ext, mime } = await recordVideo(
+    const { blob, ext, mime, cancelled } = await recordVideo(
       $('v-canvas'), video.slides, o,
       (p) => {
         $('v-prog').value = p;
@@ -903,20 +905,24 @@ $('v-render').addEventListener('click', async () => {
       },
       () => !video.recording,
     );
-    const name = `ndw-reel-${new Date().toISOString().slice(0, 10)}.${ext}`;
-    saveBlob(blob, name);
-    status($('v-status'), 'rendered', 'ok', name, (blob.size / 1048576).toFixed(1));
-    if (!mime.startsWith('video/mp4')) setTimeout(() => status($('v-status'), 'webmWarn', 'err'), 2200);
+    if (cancelled) {
+      status($('v-status'), 'cancelled', '');
+    } else {
+      const name = `ndw-reel-${new Date().toISOString().slice(0, 10)}.${ext}`;
+      saveBlob(blob, name);
+      status($('v-status'), 'rendered', 'ok', name, (blob.size / 1048576).toFixed(1));
+      if (!mime.startsWith('video/mp4')) setTimeout(() => status($('v-status'), 'webmWarn', 'err'), 2200);
+    }
   } catch (e) {
     status($('v-status'), e.message === 'no-recorder' ? 'noRecorder' : 'imgFail', 'err');
   } finally {
     video.recording = false;
-    $('v-stop').hidden = true;
+    $('v-cancel').hidden = true;
     $('v-prog').hidden = true;
     updateVideoMeta();
   }
 });
-$('v-stop').addEventListener('click', () => { video.recording = false; });
+$('v-cancel').addEventListener('click', () => { video.recording = false; });
 
 /* ---- tabs, paste, language ------------------------------------------ */
 let tab = 'single';
