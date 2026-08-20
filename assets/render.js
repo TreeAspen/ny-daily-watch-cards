@@ -253,8 +253,24 @@ export function renderDarkCard(canvas, d, { logo } = {}) {
    rail down the right — so everything that has to be read lives inside SAFE. */
 export const SAFE = { top: 250, bottom: 430, left: 72, right: 180 };
 
+export const POSTER_RATIOS = {
+  '9:16': [1080, 1920],
+  '4:5': [1080, 1350],
+  '16:9': [1920, 1080],
+};
+
+/* Only 9:16 gets the platform's chrome painted over it, so only 9:16 pays the
+   safe-zone tax. The other two are ordinary posts and take even margins. */
+function posterBox(ratio) {
+  const [W, H] = POSTER_RATIOS[ratio] || POSTER_RATIOS['9:16'];
+  if (ratio === '9:16') {
+    return { W, H, left: SAFE.left, right: SAFE.right, top: SAFE.top, bottom: SAFE.bottom };
+  }
+  const m = W > 1080 ? 104 : 84;
+  return { W, H, left: m, right: m, top: W > 1080 ? 96 : 112, bottom: W > 1080 ? 100 : 118 };
+}
+
 const P = {
-  W: 1080, H: 1920,
   line_size: 82, line_min: 44, line_lh: 1.22, line_max: 3, line_want: 2, line_hunt: 28,
   // The action rail only reaches the lower half of the frame, so the headline
   // may run wider than the badge row below it.
@@ -262,29 +278,30 @@ const P = {
   logo: 96, date_size: 38,
 };
 
-export function renderPoster(canvas, d, { photo, logo, focus = 0.5, guides = false } = {}) {
+export function renderPoster(canvas, d, { photo, logo, focus = 0.5, guides = false, ratio = '9:16' } = {}) {
+  const B = posterBox(ratio);
   const ctx = canvas.getContext('2d');
-  canvas.width = P.W; canvas.height = P.H;
+  canvas.width = B.W; canvas.height = B.H;
   ctx.textBaseline = 'alphabetic';
-  ctx.fillStyle = T.ink; ctx.fillRect(0, 0, P.W, P.H);
+  ctx.fillStyle = T.ink; ctx.fillRect(0, 0, B.W, B.H);
 
-  if (photo) coverDraw(ctx, photo, 0, 0, P.W, P.H, focus);
-  else { ctx.fillStyle = '#2A2A2A'; ctx.fillRect(0, 0, P.W, P.H); }
+  if (photo) coverDraw(ctx, photo, 0, 0, B.W, B.H, focus);
+  else { ctx.fillStyle = '#2A2A2A'; ctx.fillRect(0, 0, B.W, B.H); }
 
   // Photos are unpredictable behind white type, so both ends of the frame get
   // a scrim: enough to hold the text, light enough to keep the picture.
-  const top = ctx.createLinearGradient(0, 0, 0, P.H * 0.46);
+  const top = ctx.createLinearGradient(0, 0, 0, B.H * 0.46);
   top.addColorStop(0, 'rgba(0,0,0,0.62)');
   top.addColorStop(1, 'rgba(0,0,0,0)');
-  ctx.fillStyle = top; ctx.fillRect(0, 0, P.W, P.H * 0.46);
-  const bot = ctx.createLinearGradient(0, P.H * 0.74, 0, P.H);
+  ctx.fillStyle = top; ctx.fillRect(0, 0, B.W, B.H * 0.46);
+  const bot = ctx.createLinearGradient(0, B.H * 0.74, 0, B.H);
   bot.addColorStop(0, 'rgba(0,0,0,0)');
   bot.addColorStop(1, 'rgba(0,0,0,0.72)');
-  ctx.fillStyle = bot; ctx.fillRect(0, P.H * 0.74, P.W, P.H * 0.26);
+  ctx.fillStyle = bot; ctx.fillRect(0, B.H * 0.74, B.W, B.H * 0.26);
 
   const text = String(d.line || d.headline || '').trim();
-  const colW = P.W - SAFE.left - P.text_right;
-  const maxH = P.H - SAFE.top - SAFE.bottom;
+  const colW = B.W - B.left - (ratio === '9:16' ? P.text_right : B.right);
+  const maxH = B.H - B.top - B.bottom;
 
   // Set big and let it wrap; shrink only when the block runs past three lines
   // or out of the safe box.
@@ -308,24 +325,24 @@ export function renderPoster(canvas, d, { photo, logo, focus = 0.5, guides = fal
     ctx.shadowBlur = 26; ctx.shadowOffsetY = 3;
     ctx.fillStyle = T.white;
     ctx.font = font(700, size, 'Montserrat');
-    drawLines(ctx, lines, SAFE.left, SAFE.top, size, P.line_lh);
+    drawLines(ctx, lines, B.left, B.top, size, P.line_lh);
     ctx.restore();
   }
 
   // Date and logo sit on the floor of the safe box, not the floor of the
   // frame — below that line the app's own caption covers them.
-  const floor = P.H - SAFE.bottom;
+  const floor = B.H - B.bottom;
   const date = (d.date || '').trim();
   if (date) {
     ctx.save();
     ctx.shadowColor = 'rgba(0,0,0,0.5)'; ctx.shadowBlur = 18;
     ctx.fillStyle = T.cream;
     ctx.font = font(400, P.date_size, 'Playfair Display');
-    ctx.fillText(date, SAFE.left, floor);
+    ctx.fillText(date, B.left, floor);
     ctx.restore();
   }
   if (logo) {
-    const s = P.logo, x = P.W - SAFE.right - s, y = floor - s;
+    const s = P.logo, x = B.W - B.right - s, y = floor - s;
     ctx.save();
     ctx.beginPath(); ctx.arc(x + s / 2, y + s / 2, s / 2, 0, Math.PI * 2); ctx.clip();
     const scale = Math.min(s / logo.width, s / logo.height);
@@ -334,21 +351,21 @@ export function renderPoster(canvas, d, { photo, logo, focus = 0.5, guides = fal
     ctx.restore();
   }
 
-  if (guides) drawGuides(ctx);
-  return { size, lines: lines.length, overflow: lines.length > P.line_max };
+  if (guides) drawGuides(ctx, B);
+  return { size, lines: lines.length, overflow: lines.length > P.line_max, W: B.W, H: B.H };
 }
 
 /* Preview-only overlay: red where the app's own UI lands. */
-function drawGuides(ctx) {
+function drawGuides(ctx, B) {
   ctx.save();
   ctx.fillStyle = 'rgba(224,101,91,0.24)';
-  ctx.fillRect(0, 0, P.W, SAFE.top);
-  ctx.fillRect(0, P.H - SAFE.bottom, P.W, SAFE.bottom);
-  ctx.fillRect(P.W - SAFE.right, SAFE.top, SAFE.right, P.H - SAFE.top - SAFE.bottom);
-  ctx.fillRect(0, SAFE.top, SAFE.left, P.H - SAFE.top - SAFE.bottom);
+  ctx.fillRect(0, 0, B.W, B.top);
+  ctx.fillRect(0, B.H - B.bottom, B.W, B.bottom);
+  ctx.fillRect(B.W - B.right, B.top, B.right, B.H - B.top - B.bottom);
+  ctx.fillRect(0, B.top, B.left, B.H - B.top - B.bottom);
   ctx.strokeStyle = 'rgba(255,255,255,0.9)';
   ctx.setLineDash([18, 14]); ctx.lineWidth = 3;
-  ctx.strokeRect(SAFE.left, SAFE.top, P.W - SAFE.left - SAFE.right, P.H - SAFE.top - SAFE.bottom);
+  ctx.strokeRect(B.left, B.top, B.W - B.left - B.right, B.H - B.top - B.bottom);
   ctx.restore();
 }
 

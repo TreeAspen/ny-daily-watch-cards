@@ -1,0 +1,596 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>NY Daily Watch · Guide</title>
+<link rel="icon" href="assets/logo.png">
+<link rel="stylesheet" href="assets/fonts.css">
+<style>
+  :root{
+    --ink:#121212; --panel:#1b1b1b; --line:#2e2e2e;
+    --gold:#EFC050; --cream:#EADFC2; --text:#EDEDED; --dim:#9A9A9A;
+    --bad:#E0655B; --ok:#7FBF7F;
+  }
+  *{margin:0;padding:0;box-sizing:border-box}
+  body{background:var(--ink);color:var(--text);
+    font:400 15px/1.7 'Montserrat',system-ui,'Microsoft YaHei',sans-serif;
+    padding:28px clamp(16px,3vw,44px) 90px}
+  .wrap{max-width:1180px;margin:0 auto}
+  h1{font:700 30px/1.2 'Playfair Display',serif;color:var(--gold)}
+  h2{font:700 26px/1.3 'Playfair Display',serif;color:var(--gold);margin:0 0 6px}
+  h3{font:600 15px/1.4 'Montserrat';color:var(--cream);margin:22px 0 8px}
+  header{display:flex;align-items:center;gap:14px;margin-bottom:8px;flex-wrap:wrap}
+  header img{width:44px;height:44px;border-radius:50%}
+  .spacer{margin-left:auto}
+  .langs{display:flex;gap:6px}
+  a.nav{color:var(--dim);text-decoration:none;font-size:13px;border:1px solid var(--line);
+    border-radius:7px;padding:9px 14px}
+  a.nav:hover{color:var(--gold);border-color:var(--gold)}
+  button{font:600 13px/1 'Montserrat';border-radius:7px;padding:9px 14px;cursor:pointer;
+    border:1px solid var(--line);background:#252525;color:var(--text)}
+  button:hover{border-color:var(--gold);color:var(--gold)}
+  button[aria-pressed=true]{border-color:var(--gold);color:var(--gold);background:#2b2416}
+
+  .lede{color:var(--dim);font-size:14px;margin-bottom:26px;max-width:76ch}
+  nav.toc{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:34px}
+  nav.toc a{font-size:12.5px;color:var(--dim);text-decoration:none;border:1px solid var(--line);
+    border-radius:20px;padding:6px 13px}
+  nav.toc a:hover{color:var(--gold);border-color:var(--gold)}
+
+  section{border-top:1px solid var(--line);padding-top:26px;margin-top:34px}
+  section > p{max-width:76ch;color:#D8D6D0;margin-bottom:10px}
+  .muted{color:var(--dim);font-size:13.5px}
+
+  ol.steps{counter-reset:s;list-style:none;margin:14px 0 0;max-width:80ch}
+  ol.steps li{counter-increment:s;position:relative;padding-left:46px;margin-bottom:16px}
+  ol.steps li::before{content:counter(s);position:absolute;left:0;top:1px;width:30px;height:30px;
+    border-radius:50%;background:var(--gold);color:#1a1400;font:700 14px/30px 'Montserrat';
+    text-align:center}
+  ol.steps b{color:var(--cream);font-weight:600}
+
+  .figs{display:flex;flex-wrap:wrap;gap:22px;margin-top:18px;align-items:flex-start}
+  figure{background:#0d0d0d;border:1px solid var(--line);border-radius:10px;padding:10px;
+    display:inline-block}
+  figure canvas,figure svg{display:block;border-radius:4px}
+  figcaption{font-size:12px;color:var(--dim);margin-top:8px;max-width:230px;line-height:1.5}
+  figcaption b{color:var(--cream);font-weight:600;display:block;margin-bottom:2px}
+
+  table{border-collapse:collapse;margin-top:14px;font-size:13.5px;width:100%;max-width:900px}
+  th,td{border-bottom:1px solid var(--line);padding:9px 12px;text-align:left;vertical-align:top}
+  th{color:var(--dim);font:600 11.5px/1.4 'Montserrat';letter-spacing:.07em;text-transform:uppercase}
+  td code{font-size:12.5px}
+  code{background:#191919;border:1px solid var(--line);border-radius:4px;padding:1px 6px;font-size:12.5px}
+  pre{background:#151515;border:1px solid var(--line);border-radius:8px;padding:14px 16px;
+    overflow-x:auto;margin-top:12px;font:400 12.5px/1.6 ui-monospace,Consolas,monospace;
+    color:#CFCDC6;max-width:900px}
+  kbd{background:#2a2a2a;border:1px solid var(--line);border-radius:4px;padding:1px 6px;
+    font:600 12px/1 'Montserrat';color:var(--cream)}
+  .note{border-left:3px solid var(--gold);background:#1a1710;padding:12px 16px;border-radius:0 8px 8px 0;
+    margin-top:16px;font-size:13.5px;color:#DED9CC;max-width:80ch}
+  .note.bad{border-left-color:var(--bad);background:#1c1413}
+  ul.plain{list-style:none;margin-top:10px;max-width:80ch}
+  ul.plain li{padding-left:18px;position:relative;margin-bottom:7px;font-size:14px;color:#D8D6D0}
+  ul.plain li::before{content:'·';position:absolute;left:4px;color:var(--gold);font-weight:700}
+</style>
+</head>
+<body>
+<div class="wrap">
+<header>
+  <img id="brandmark" alt="">
+  <h1 data-i18n="appTitle"></h1>
+  <span class="spacer"></span>
+  <a class="nav" href="index.html" data-i18n="navPost"></a>
+  <a class="nav" href="studio.html" data-i18n="navStudio"></a>
+  <div class="langs">
+    <button data-lang="en">English</button>
+    <button data-lang="zh">中文</button>
+  </div>
+</header>
+<p class="lede" data-i18n="lede"></p>
+
+<nav class="toc" id="toc"></nav>
+
+<section id="what">
+  <h2 data-i18n="s1title"></h2>
+  <p data-i18n="s1body"></p>
+  <div class="figs" id="fig-outputs"></div>
+</section>
+
+<section id="flow">
+  <h2 data-i18n="s2title"></h2>
+  <p data-i18n="s2body"></p>
+  <ol class="steps" id="flow-steps"></ol>
+  <div class="figs"><figure><svg id="svg-layout" width="720" height="300"></svg>
+    <figcaption><b data-i18n="figLayoutT"></b><span data-i18n="figLayoutC"></span></figcaption></figure></div>
+  <div class="note" data-i18n="s2note"></div>
+</section>
+
+<section id="templates">
+  <h2 data-i18n="s3title"></h2>
+  <p data-i18n="s3body"></p>
+  <div class="figs" id="fig-templates"></div>
+</section>
+
+<section id="charts">
+  <h2 data-i18n="s4title"></h2>
+  <p data-i18n="s4body"></p>
+  <div class="figs" id="fig-charts"></div>
+  <h3 data-i18n="s4fields"></h3>
+  <pre id="chart-json"></pre>
+  <table id="chart-fields"></table>
+</section>
+
+<section id="palette">
+  <h2 data-i18n="s5title"></h2>
+  <p data-i18n="s5body"></p>
+  <div class="figs"><figure><svg id="svg-palette" width="700" height="130"></svg>
+    <figcaption><b data-i18n="figPalT"></b><span data-i18n="figPalC"></span></figcaption></figure></div>
+  <table id="palette-checks"></table>
+  <div class="note" data-i18n="s5note"></div>
+</section>
+
+<section id="safe">
+  <h2 data-i18n="s6title"></h2>
+  <p data-i18n="s6body"></p>
+  <div class="figs" id="fig-safe"></div>
+</section>
+
+<section id="video">
+  <h2 data-i18n="s7title"></h2>
+  <p data-i18n="s7body"></p>
+  <div class="figs"><figure><svg id="svg-timeline" width="720" height="180"></svg>
+    <figcaption><b data-i18n="figTimeT"></b><span data-i18n="figTimeC"></span></figcaption></figure></div>
+  <div class="figs" id="fig-video"></div>
+  <table id="video-opts"></table>
+  <div class="note bad" data-i18n="s7note"></div>
+</section>
+
+<section id="fix">
+  <h2 data-i18n="s8title"></h2>
+  <table id="fixes"></table>
+</section>
+</div>
+
+<script src="assets/logo.js"></script>
+<script type="module">
+import { renderPhotoCard, renderDarkCard, renderPoster, SAFE, FONT_SPECS, loadImage }
+  from './assets/render.js';
+import { renderChart, BRAND_PALETTE } from './assets/chart.js';
+import { drawFrame, drawIntro, drawOutro, V } from './assets/video.js';
+
+const $ = (id) => document.getElementById(id);
+const LANG_STORE = 'ndw-cards-lang';
+
+/* ---- strings --------------------------------------------------------- */
+const STR = {
+  en: {
+    appTitle: 'NY Daily Watch · Guide',
+    navPost: '← Post builder', navStudio: 'Studio →',
+    lede: 'Everything the tool makes, what each control does, and the rules baked into the templates. Every picture below is drawn by the same code the tool runs, so nothing here can drift out of date.',
+
+    toc: ['What it makes', 'The daily run', 'The templates', 'Charts', 'Palette', 'Safe zones', 'Video', 'When something looks wrong'],
+
+    s1title: 'What it makes',
+    s1body: 'Four still formats and one video. The two cards are the standard post; the poster is the full-bleed format; the chart turns numbers from the story into an image. All of them carry the same fonts, the same gold and the same logo.',
+
+    s2title: 'The daily run',
+    s2body: 'One story, start to finish, is a paste and a paste.',
+    steps: [
+      ['Copy the prompt.', 'On the post builder press <b>Copy AI prompt</b>, paste it into any model, and paste the article underneath it.'],
+      ['Paste the reply.', 'The model answers with JSON. Select all of it and paste it into the left box — code fences and trailing commas are cleaned up for you.'],
+      ['Paste the photo.', 'Copy an image anywhere and press <kbd>Ctrl</kbd>+<kbd>V</kbd> on the page. Use <b>Vertical crop</b> if the crop cuts a face.'],
+      ['Check the red notes.', 'A red line under a card means the text will not fit at the smallest size. Shorten that line rather than living with tiny type.'],
+      ['Take it away.', '<b>Download both PNGs</b>, then <b>Copy caption</b>. The caption box shows the character count and flags anything that breaks the house format.'],
+    ],
+    s2note: 'The JSON box and the caption box remember what you typed, so a refresh does not lose the story. Hand edits to the caption survive re-parsing — only a genuinely new caption from the JSON replaces them.',
+
+    s3title: 'The templates',
+    s3body: 'Card text auto-shrinks to fit; you never set a font size. The number under each card in the tool tells you what size it settled on.',
+
+    s4title: 'Charts',
+    s4body: 'Pick the type from the job the numbers do, not from what looks good. The picker names the job next to every type, and the hint under it repeats the one rule that type gets wrong most often.',
+    s4fields: 'The JSON',
+
+    s5title: 'Palette',
+    s5body: 'Six colours, in a fixed order. Slot 1 is the brand gold and is what a single-series chart wears; a second series takes slot 2, and so on. The order is not decoration — it was searched for and checked, and a colour you add is checked the same way.',
+    figPalT: 'The six slots, in order',
+    figPalC: 'Used top to bottom. Past the sixth, extra series go grey rather than repeat a colour.',
+    s5note: 'A warning does not stop you exporting. It tells you what a reader will struggle with — most often two neighbouring series that look alike to a colourblind reader, which is about 1 in 12 men.',
+
+    s6title: 'Safe zones',
+    s6body: 'A 9:16 image gets the app’s own caption, buttons and tabs painted over it. The poster and the 9:16 chart keep their text inside the box that survives that; the guides toggle shows you where the danger is, and never exports.',
+
+    s7title: 'Video',
+    s7body: 'Drop in the stills you already made, drag them into order, and record. Slides run the full width of the frame — a 4:5 card keeps its width and gets blurred bands above and below rather than being shrunk.',
+    figTimeT: 'How the 30 seconds are spent',
+    figTimeC: 'The opening title and end card come off the top of the total; what is left is split evenly between the slides.',
+    s7note: 'Recording runs in real time — a 30-second video takes 30 seconds — and a background tab drops frames. Leave the tab in front until it finishes, or press Cancel.',
+
+    s8title: 'When something looks wrong',
+    fixes: [
+      ['A red line under the card', 'The text will not fit at the minimum size. Shorten the line named — do not fight it with the crop.'],
+      ['Copy button does nothing', 'Clipboard images need https or localhost. On the published site it works; opening the file directly from disk it will not.'],
+      ['Nothing renders at all', 'The page uses ES modules, so it must be served over HTTP. Double-clicking index.html is blocked by the browser.'],
+      ['The video came out stuttering', 'The tab was in the background while recording. Record again with the tab in front.'],
+      ['Instagram rejects the video', 'Firefox can only record WebM. Use Chrome, Edge or Safari to get MP4.'],
+      ['A chart colour warning', 'Two series are too close for some readers. Press Reset to brand, or move the added colour further in hue or lightness.'],
+    ],
+    chartFieldsHead: ['Field', 'What it does'],
+    chartFields: [
+      ['type', 'bar · hbar · line · area · scatter · donut · stat'],
+      ['title', 'The point of the chart, not the name of the dataset'],
+      ['subtitle', 'What is being counted, and over what period'],
+      ['unit', '<code>%</code> and <code>¢</code> follow the number; anything else leads it'],
+      ['categories', 'The x labels — under four words each'],
+      ['series', 'One entry per line or bar group: <code>{ name, values }</code>'],
+      ['points', 'Scatter only: <code>{ x, y, name }</code>. Only the extremes get named'],
+      ['value / delta / label', 'Stat only — the number, the change, the sentence'],
+      ['emphasis', 'Index of the one series that matters; the rest are drawn grey'],
+      ['xLabel / yLabel', 'Axis labels, both horizontal — nothing is read sideways'],
+      ['source', 'Runs along the bottom. Name the agency or company'],
+    ],
+    videoOptsHead: ['Control', 'What it does'],
+    videoOpts: [
+      ['Total seconds', 'Split evenly across the slides after the title and end card are taken off'],
+      ['Motion', 'Still · push in · pull out · alternating (the default) · drift up'],
+      ['Transition', 'Crossfade · hard cut · through black · push up'],
+      ['Opening title', 'Two seconds: logo, masthead, gold rule, date'],
+      ['End card', 'Two and a half seconds: logo, READ MORE AT, the handle, LINK IN BIO'],
+      ['Preview / Play', 'Runs the exact frames the recorder will write — check before spending 30 seconds'],
+    ],
+    figLayoutT: 'The post builder',
+    figLayoutC: 'Paste on the left, watch on the right. The caption is lifted out of the same paste.',
+    capCard1: ['Photo card', 'Category tag, headline, subtitle. 1080×1350.'],
+    capCard2: ['Bullet card', 'Three bullets on ink. 1080×1350.'],
+    capPoster: ['Poster', 'One bold line over a full-bleed photo. 9:16, 4:5 or 16:9.'],
+    capChart: ['Chart', 'Numbers from the story. 4:5, 9:16 or 16:9.'],
+    capSafe916: ['9:16 with guides on', 'Red is what the app covers: 250px off the top, 430px off the bottom, 180px off the right.'],
+    capSafe45: ['4:5, no overlay', 'A feed post has no chrome over it, so the margins are even.'],
+    capVidCard: ['A 4:5 card in the video', 'Full width, blurred bands above and below — never pillarboxed.'],
+    capVidIntro: ['Opening title', 'Logo, masthead, gold rule, date.'],
+    capVidOutro: ['End card', 'Where the reader is sent next.'],
+    chartCaps: {
+      bar: ['Columns', 'A handful of categories. One series, one colour.'],
+      hbar: ['Bars', 'Long labels, or more than six rows.'],
+      line: ['Line', 'Change over time. Only the last point is labelled.'],
+      scatter: ['Scatter', 'Two measures against each other. Three series at most.'],
+      donut: ['Donut', 'Part of a whole. Six slices at most.'],
+      stat: ['Stat', 'When the story is one number, this is the chart.'],
+    },
+  },
+  zh: {
+    appTitle: 'NY Daily Watch · 使用说明',
+    navPost: '← 整条帖子', navStudio: '工作台 →',
+    lede: '这个工具能做出什么、每个控件是干什么的、以及模板里已经写死的那些规则。下面每一张图都是用工具本身的代码现画的，所以不会和实际效果对不上。',
+
+    toc: ['能做出什么', '日常流程', '几个模板', '数据图表', '配色', '安全区', '视频', '出问题时怎么办'],
+
+    s1title: '能做出什么',
+    s1body: '四种静态版式加一个视频。两张卡片是常规帖子；海报是满屏版式；图表把新闻里的数字变成图。它们用的是同一套字体、同一个金色、同一个 logo。',
+
+    s2title: '日常流程',
+    s2body: '一条新闻从头到尾，就是两次粘贴。',
+    steps: [
+      ['复制提示词。', '在主页点<b>「复制 AI 提示词」</b>，粘到任意模型里，把新闻原文贴在它下面。'],
+      ['粘回 JSON。', '模型会回一段 JSON，整段复制粘进左边的框——带 ```json 代码块标记或多余逗号都会自动清掉。'],
+      ['贴图。', '在任何地方复制一张图，然后在页面上按 <kbd>Ctrl</kbd>+<kbd>V</kbd>。裁切切到人脸时用<b>「纵向裁切」</b>调。'],
+      ['看红字提示。', '卡片下面出现红字，说明文字缩到最小字号仍然放不下。请缩短那一句，而不是将就小字。'],
+      ['拿走。', '点<b>「一键下载两张 PNG」</b>，再点<b>「复制 caption」</b>。caption 框会显示字数，并标出不符合固定格式的地方。'],
+    ],
+    s2note: 'JSON 框和 caption 框会记住你输入的内容，刷新页面不会丢。caption 里手动改的内容不会被重新解析覆盖，只有 JSON 里换了新的 caption 才会替换。',
+
+    s3title: '几个模板',
+    s3body: '卡片文字会自动缩放适配，你不需要设字号。工具里每张卡下面的数字就是它最终用的字号。',
+
+    s4title: '数据图表',
+    s4body: '按数字要表达什么来选图形，而不是按哪个好看。下拉框里每个图形后面都写了它适合干什么，下面那行提示写的是这种图最容易犯的那个错。',
+    s4fields: 'JSON 字段',
+
+    s5title: '配色',
+    s5body: '六个颜色，顺序固定。第 1 个是品牌金，单系列图表用的就是它；第二个系列用第 2 个颜色，依此类推。这个顺序不是随便排的——是搜出来并逐项验证过的，你自己加的颜色也会用同一套标准检查。',
+    figPalT: '六个色位，按顺序使用',
+    figPalC: '从上往下用。超过第六个之后，多出来的系列会变灰，而不是重复使用已有颜色。',
+    s5note: '出现警告不影响导出。它只是告诉你哪里会让读者读不出来——最常见的是相邻两个系列对色盲读者看起来一样，而这类读者大约每 12 个男性里就有 1 个。',
+
+    s6title: '安全区',
+    s6body: '9:16 的图会被 App 自己的文案、按钮和顶部标签盖住一部分。海报和 9:16 图表都会把文字放在不会被盖的范围内；勾上参考线就能看到危险区域在哪，参考线不会出现在导出的图里。',
+
+    s7title: '视频',
+    s7body: '把做好的图丢进去、拖动排序、录制。每张图都横向铺满画面——4:5 的卡片保持满宽，上下补模糊背景，而不是被缩小。',
+    figTimeT: '30 秒是怎么分配的',
+    figTimeC: '总时长先扣掉片头和片尾，剩下的平均分给每张图。',
+    s7note: '录制按真实时间进行——30 秒的视频就要录 30 秒——切到后台会掉帧。录完之前请让这个标签页保持在最前，不想等就点「取消」。',
+
+    s8title: '出问题时怎么办',
+    fixes: [
+      ['卡片下面有红字', '文字缩到最小字号还是放不下。请缩短它点名的那一句，别靠调裁切硬解决。'],
+      ['复制按钮没反应', '复制图片到剪贴板需要 https 或 localhost。线上站点可以用；直接双击本地文件打开则不行。'],
+      ['页面完全不出图', '页面用了 ES 模块，必须通过 HTTP 打开。直接双击 index.html 会被浏览器拦下。'],
+      ['视频很卡', '录制期间标签页被切到后台了。让页面保持在最前重录一次。'],
+      ['Instagram 不收这个视频', 'Firefox 只能录 WebM。用 Chrome / Edge / Safari 才能得到 MP4。'],
+      ['图表提示配色问题', '有两个系列对部分读者太接近。点「恢复品牌配色」，或者把新加的颜色在色相或明度上拉开一些。'],
+    ],
+    chartFieldsHead: ['字段', '作用'],
+    chartFields: [
+      ['type', 'bar 柱 · hbar 条 · line 折线 · area 面积 · scatter 散点 · donut 环形 · stat 数字卡'],
+      ['title', '写这张图要说明什么，而不是数据集的名字'],
+      ['subtitle', '统计的是什么、什么时间范围'],
+      ['unit', '<code>%</code> 和 <code>¢</code> 跟在数字后面，其他符号放在数字前面'],
+      ['categories', 'x 轴标签，每个不超过四个词'],
+      ['series', '每条线或每组柱子一项：<code>{ name, values }</code>'],
+      ['points', '仅散点图：<code>{ x, y, name }</code>，只有极值点会被标注'],
+      ['value / delta / label', '仅数字卡——数字、变化、说明句'],
+      ['emphasis', '要强调的那个系列的序号，其余画成灰色'],
+      ['xLabel / yLabel', '坐标轴标签，都是横排的，不需要歪头看'],
+      ['source', '显示在底部，写清楚是哪个机构或公司的数据'],
+    ],
+    videoOptsHead: ['控件', '作用'],
+    videoOpts: [
+      ['总秒数', '扣掉片头片尾后，剩下的平均分给每张图'],
+      ['画面动效', '静止 · 缓慢推近 · 缓慢拉远 · 推近拉远交替（默认）· 缓慢上移'],
+      ['转场', '交叉淡入 · 硬切 · 黑场过渡 · 向上推移'],
+      ['片头', '2 秒：logo、刊名、金色横线、日期'],
+      ['片尾', '2.4 秒：logo、READ MORE AT、账号、LINK IN BIO'],
+      ['预览 / 播放', '走的是录制时完全相同的画面，先看清楚再花 30 秒去录'],
+    ],
+    figLayoutT: '主页布局',
+    figLayoutC: '左边粘贴，右边看效果。caption 从同一次粘贴里提取。',
+    capCard1: ['图片卡', '分类标签、大标题、副标题，1080×1350。'],
+    capCard2: ['要点卡', '深色底三条要点，1080×1350。'],
+    capPoster: ['海报', '满屏照片加一行粗体大字，可选 9:16 / 4:5 / 16:9。'],
+    capChart: ['图表', '新闻里的数字，可选 4:5 / 9:16 / 16:9。'],
+    capSafe916: ['9:16 打开参考线', '红色是 App 会盖住的部分：上 250px、下 430px、右 180px。'],
+    capSafe45: ['4:5 没有遮挡', '普通帖子上面不会压 UI，所以四边留白是均匀的。'],
+    capVidCard: ['视频里的 4:5 卡片', '横向满屏，上下补模糊——不会两边留黑边。'],
+    capVidIntro: ['片头', 'logo、刊名、金线、日期。'],
+    capVidOutro: ['片尾', '告诉读者接下来去哪。'],
+    chartCaps: {
+      bar: ['柱状图', '比较几个类别。单系列时所有柱子同一个颜色。'],
+      hbar: ['条形图', '标签长，或者条目超过六个。'],
+      line: ['折线图', '随时间变化，只标最后一个点的数值。'],
+      scatter: ['散点图', '两个指标的关系，最多三个系列。'],
+      donut: ['环形图', '占整体的比例，最多六块。'],
+      stat: ['数字卡', '故事本身就是一个数字时，这就是那张"图"。'],
+    },
+  },
+};
+
+let lang = localStorage.getItem(LANG_STORE) || 'en';
+const t = (k) => STR[lang][k];
+
+/* ---- sample stories, shared by every illustration -------------------- */
+const CARD = {
+  category: 'Business',
+  headline: 'Polysilicon: The Hidden Link Between America’s Solar and Chip Industries',
+  subtitle: 'New solar tariffs, signed Aug. 6 — the real target is chips.',
+  eyebrow: 'Why chips need solar',
+  heading: 'Three things to know',
+  bullets: [
+    "Chips use just 2.4% of the world's polysilicon. Solar uses nearly all the rest.",
+    'The U.S. had ~50% of global capacity in 2005. Under 2% by 2024.',
+    'Price floors and a 15% tariff take effect Dec. 4.',
+  ],
+  date: 'AUGUST 12, 2026',
+};
+const POSTER = { line: 'Two earlier AI companies failed before this one.', date: 'August 3, 2026' };
+const SRC = 'Source: Commerce Department';
+const CHARTS = {
+  bar: { type: 'bar', title: 'America’s capacity collapsed', subtitle: 'US share of world capacity',
+    unit: '%', source: SRC, categories: ['2005', '2010', '2015', '2020', '2024'],
+    series: [{ name: 'US share', values: [50, 34, 12, 4, 1.8] }] },
+  hbar: { type: 'hbar', title: 'Where the tariff lands', subtitle: 'Added cost per panel',
+    unit: '$', source: SRC,
+    categories: ['Utility-scale solar', 'Community solar', 'Residential rooftop', 'Commercial rooftop'],
+    series: [{ name: 'Added cost', values: [41, 33, 28, 19] }] },
+  line: { type: 'line', title: 'Prices fell below cost', subtitle: 'Spot price per kilogram',
+    unit: '$', source: SRC, categories: ['2019', '2020', '2021', '2022', '2023', '2024'],
+    series: [{ name: 'China', values: [9, 11, 34, 38, 14, 6] }, { name: 'US', values: [13, 14, 29, 31, 19, 12] }] },
+  scatter: { type: 'scatter', title: 'Capacity does not track demand', subtitle: 'Plant capacity against local demand',
+    unit: 'kt', source: SRC,
+    points: [{ x: 12, y: 40, name: 'Xinjiang' }, { x: 22, y: 55 }, { x: 31, y: 28 }, { x: 44, y: 70 },
+      { x: 52, y: 35 }, { x: 61, y: 62 }, { x: 70, y: 18, name: 'Moses Lake' }, { x: 80, y: 48 }] },
+  donut: { type: 'donut', title: 'Who uses the world’s polysilicon', subtitle: 'Share of demand, 2024',
+    unit: '%', source: SRC, categories: ['Solar', 'Semiconductors', 'Other'],
+    series: [{ name: 'share', values: [96, 2.4, 1.6] }] },
+  stat: { type: 'stat', title: 'Chips use almost none of it',
+    subtitle: 'Share of world polysilicon going to semiconductors', source: SRC,
+    value: '2.4%', delta: 'down from 6% in 2015', label: 'Solar takes nearly all of the rest.' },
+};
+
+const CHART_JSON = `{
+  "type": "bar",
+  "title": "America's polysilicon capacity collapsed",
+  "subtitle": "US share of world polysilicon capacity",
+  "unit": "%",
+  "categories": ["2005", "2010", "2015", "2020", "2024"],
+  "series": [{ "name": "US share", "values": [50, 34, 12, 4, 1.8] }],
+  "source": "Source: Commerce Department"
+}`;
+
+/* ---- illustration helpers -------------------------------------------- */
+let logoImg = null;
+
+function figure(parent, width, capKey, capPair) {
+  const fig = document.createElement('figure');
+  const c = document.createElement('canvas');
+  c.style.width = width + 'px';
+  fig.appendChild(c);
+  const cap = document.createElement('figcaption');
+  cap.dataset.cap = capKey || '';
+  if (capPair) cap.innerHTML = `<b>${capPair[0]}</b>${capPair[1]}`;
+  fig.appendChild(cap);
+  parent.appendChild(fig);
+  return c;
+}
+
+function fillFigs() {
+  // Outputs
+  const out = $('fig-outputs'); out.innerHTML = '';
+  renderPhotoCard(figure(out, 190, null, t('capCard1')), CARD, { logo: logoImg });
+  renderDarkCard(figure(out, 190, null, t('capCard2')), CARD, { logo: logoImg });
+  renderPoster(figure(out, 150, null, t('capPoster')), POSTER, { logo: logoImg, ratio: '9:16' });
+  renderChart(figure(out, 190, null, t('capChart')), CHARTS.bar, { logo: logoImg, ratio: '4:5' });
+
+  // Templates, at a bigger size
+  const tp = $('fig-templates'); tp.innerHTML = '';
+  renderPhotoCard(figure(tp, 250, null, t('capCard1')), CARD, { logo: logoImg });
+  renderDarkCard(figure(tp, 250, null, t('capCard2')), CARD, { logo: logoImg });
+  renderPoster(figure(tp, 195, null, t('capPoster')), POSTER, { logo: logoImg, ratio: '4:5' });
+
+  // Charts
+  const ch = $('fig-charts'); ch.innerHTML = '';
+  for (const [k, d] of Object.entries(CHARTS)) {
+    renderChart(figure(ch, 215, null, t('chartCaps')[k]), d, { logo: logoImg, ratio: '4:5' });
+  }
+
+  // Safe zones
+  const sf = $('fig-safe'); sf.innerHTML = '';
+  renderPoster(figure(sf, 175, null, t('capSafe916')), POSTER, { logo: logoImg, ratio: '9:16', guides: true });
+  renderPoster(figure(sf, 230, null, t('capSafe45')), POSTER, { logo: logoImg, ratio: '4:5', guides: true });
+
+  // Video frames
+  const vd = $('fig-video'); vd.innerHTML = '';
+  const card = document.createElement('canvas');
+  renderPhotoCard(card, CARD, { logo: logoImg });
+  const slide = new Image();
+  slide.onload = () => {
+    const c1 = figure(vd, 150, null, t('capVidCard'));
+    c1.width = V.W; c1.height = V.H;
+    drawFrame(c1.getContext('2d'), [slide], 1.2,
+      { total: 6, intro: 0, outro: 0, motion: 'none', transition: 'crossfade' });
+    const c2 = figure(vd, 150, null, t('capVidIntro'));
+    c2.width = V.W; c2.height = V.H;
+    drawIntro(c2.getContext('2d'), 1, { logo: logoImg, date: 'August 12, 2026' });
+    const c3 = figure(vd, 150, null, t('capVidOutro'));
+    c3.width = V.W; c3.height = V.H;
+    drawOutro(c3.getContext('2d'), 1, { logo: logoImg });
+  };
+  slide.src = card.toDataURL();
+}
+
+/* ---- SVG diagrams ----------------------------------------------------- */
+const NS = 'http://www.w3.org/2000/svg';
+const el = (name, attrs, text) => {
+  const n = document.createElementNS(NS, name);
+  for (const [k, v] of Object.entries(attrs)) n.setAttribute(k, v);
+  if (text != null) n.textContent = text;
+  return n;
+};
+
+function drawLayout() {
+  const svg = $('svg-layout');
+  svg.innerHTML = '';
+  const box = (x, y, w, h, label, gold) => {
+    svg.appendChild(el('rect', { x, y, width: w, height: h, rx: 8, fill: gold ? '#2b2416' : '#1b1b1b',
+      stroke: gold ? '#EFC050' : '#2e2e2e', 'stroke-width': 1.5 }));
+    svg.appendChild(el('text', { x: x + 12, y: y + 24, fill: gold ? '#EFC050' : '#9A9A9A',
+      'font-family': 'Montserrat', 'font-size': 13, 'font-weight': 600 }, label));
+  };
+  svg.appendChild(el('rect', { x: 0, y: 0, width: 720, height: 300, rx: 10, fill: '#121212' }));
+  box(16, 16, 320, 120, lang === 'zh' ? '1 · 粘 JSON' : '1 · Story JSON', true);
+  box(16, 148, 320, 66, lang === 'zh' ? '2 · Ctrl+V 贴图' : '2 · Ctrl+V the photo', true);
+  box(16, 226, 320, 58, lang === 'zh' ? '3 · 下载两张 PNG' : '3 · Download both PNGs', true);
+  box(356, 16, 170, 150, lang === 'zh' ? '卡片 1' : 'Card 1');
+  box(538, 16, 166, 150, lang === 'zh' ? '卡片 2' : 'Card 2');
+  box(356, 178, 348, 106, 'Caption');
+  svg.appendChild(el('path', { d: 'M340 76 L352 76', stroke: '#EFC050', 'stroke-width': 2 }));
+  svg.appendChild(el('path', { d: 'M340 76 L352 76 M347 71 L353 76 L347 81', stroke: '#EFC050',
+    'stroke-width': 2, fill: 'none' }));
+}
+
+function drawPaletteFig() {
+  const svg = $('svg-palette');
+  svg.innerHTML = '';
+  svg.appendChild(el('rect', { x: 0, y: 0, width: 700, height: 130, rx: 10, fill: '#121212' }));
+  BRAND_PALETTE.forEach((hex, i) => {
+    const x = 16 + i * 112;
+    svg.appendChild(el('rect', { x, y: 22, width: 96, height: 52, rx: 7, fill: hex }));
+    svg.appendChild(el('text', { x: x + 4, y: 96, fill: '#9A9A9A', 'font-family': 'Montserrat',
+      'font-size': 12 }, `${i + 1} · ${hex}`));
+  });
+  svg.appendChild(el('text', { x: 16, y: 118, fill: '#7FBF7F', 'font-family': 'Montserrat',
+    'font-size': 12 }, lang === 'zh'
+    ? '✓ 全部通过：明度、彩度、色盲可辨性、对比度'
+    : '✓ All checks pass: lightness, chroma, colourblind separation, contrast'));
+}
+
+function drawTimeline() {
+  const svg = $('svg-timeline');
+  svg.innerHTML = '';
+  svg.appendChild(el('rect', { x: 0, y: 0, width: 720, height: 180, rx: 10, fill: '#121212' }));
+  const total = 30, intro = 2, outro = 2.4;
+  const body = total - intro - outro;
+  const per = body / 3;
+  const X = 24, W = 672, k = W / total;
+  const seg = (start, len, fill, label, sub) => {
+    const x = X + start * k, w = len * k;
+    svg.appendChild(el('rect', { x, y: 46, width: w - 3, height: 56, rx: 6, fill }));
+    svg.appendChild(el('text', { x: x + 8, y: 80, fill: '#1a1400', 'font-family': 'Montserrat',
+      'font-size': 12, 'font-weight': 700 }, label));
+    svg.appendChild(el('text', { x: x + 8, y: 122, fill: '#9A9A9A', 'font-family': 'Montserrat',
+      'font-size': 11 }, sub));
+  };
+  seg(0, intro, '#8a7a4a', lang === 'zh' ? '片头' : 'Title', intro + 's');
+  for (let i = 0; i < 3; i++) {
+    seg(intro + i * per, per, '#EFC050',
+      (lang === 'zh' ? '图 ' : 'Slide ') + (i + 1), per.toFixed(1) + 's');
+  }
+  seg(intro + body, outro, '#8a7a4a', lang === 'zh' ? '片尾' : 'End', outro + 's');
+  svg.appendChild(el('text', { x: X, y: 32, fill: '#EADFC2', 'font-family': 'Montserrat',
+    'font-size': 12, 'font-weight': 600 },
+    lang === 'zh' ? '总长 30 秒 · 3 张图' : '30 seconds total · 3 slides'));
+  svg.appendChild(el('text', { x: X, y: 158, fill: '#9A9A9A', 'font-family': 'Montserrat',
+    'font-size': 11 }, lang === 'zh'
+    ? '每两段之间有 0.6 秒交叉淡入' : 'A 0.6s crossfade sits between every pair'));
+}
+
+/* ---- tables ----------------------------------------------------------- */
+function table(id, head, rows) {
+  const el2 = $(id);
+  el2.innerHTML = '<thead><tr>' + head.map((h) => `<th>${h}</th>`).join('') + '</tr></thead><tbody>' +
+    rows.map((r) => '<tr>' + r.map((c, i) =>
+      `<td>${i === 0 ? '<code>' + c + '</code>' : c}</td>`).join('') + '</tr>').join('') +
+    '</tbody>';
+}
+
+/* ---- language --------------------------------------------------------- */
+function applyLang() {
+  document.documentElement.lang = lang === 'zh' ? 'zh-CN' : 'en';
+  document.title = t('appTitle');
+  document.querySelectorAll('[data-i18n]').forEach((n) => { n.textContent = t(n.dataset.i18n); });
+  document.querySelectorAll('[data-lang]').forEach((b) =>
+    b.setAttribute('aria-pressed', String(b.dataset.lang === lang)));
+
+  const ids = ['what', 'flow', 'templates', 'charts', 'palette', 'safe', 'video', 'fix'];
+  $('toc').innerHTML = t('toc').map((label, i) => `<a href="#${ids[i]}">${label}</a>`).join('');
+
+  $('flow-steps').innerHTML = t('steps')
+    .map(([head, body]) => `<li><b>${head}</b> ${body}</li>`).join('');
+  $('chart-json').textContent = CHART_JSON;
+  table('chart-fields', t('chartFieldsHead'), t('chartFields'));
+  table('video-opts', t('videoOptsHead'), t('videoOpts'));
+  table('fixes', lang === 'zh' ? ['现象', '原因和解法'] : ['What you see', 'Why, and the fix'], t('fixes'));
+
+  drawLayout(); drawPaletteFig(); drawTimeline();
+  fillFigs();
+}
+document.querySelectorAll('[data-lang]').forEach((b) => b.addEventListener('click', () => {
+  lang = b.dataset.lang;
+  localStorage.setItem(LANG_STORE, lang);
+  applyLang();
+}));
+
+/* ---- boot ------------------------------------------------------------- */
+(async () => {
+  const q = new URLSearchParams(location.search);
+  if (q.get('lang') === 'zh' || q.get('lang') === 'en') lang = q.get('lang');
+  $('brandmark').src = window.NDW_LOGO;
+  logoImg = await loadImage(window.NDW_LOGO);
+  await Promise.all(FONT_SPECS.map((s) => document.fonts.load(s, 'Ag')));
+  await document.fonts.ready;
+  applyLang();
+})();
+</script>
+</body>
+</html>

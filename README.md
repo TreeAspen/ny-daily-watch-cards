@@ -1,6 +1,6 @@
 # NY Daily Watch · Instagram Card Generator
 
-Turns one news story into two 1080×1350 Instagram cards — a photo card and a dark bullet card — plus the post caption, from a single paste.
+Turns one news story into two 1080×1350 Instagram cards — a photo card and a dark bullet card — plus the post caption, from a single paste. A studio page adds single cards, a full-bleed poster, charts and a vertical video cut.
 
 **Live:** https://treeaspen.github.io/ny-daily-watch-cards/
 
@@ -72,7 +72,7 @@ The photo is `cover`-cropped into a 1080×600 band; the **Vertical crop** slider
 
 **Single card.** Either template on its own, each with its own prompt asking only for the fields that card uses — the photo card wants `category` / `headline` / `subtitle` / `date`, the bullet card wants `eyebrow` / `heading` / `bullets` / `date`. Neither prompt asks for a caption; use the main page when you need the whole post.
 
-**Poster 9:16.** A new format: a full-bleed centre-cropped photo at 1080×1920, one bold Montserrat line across the top, the date bottom left and the logo bottom right.
+**Poster.** A full-bleed centre-cropped photo with one bold Montserrat line across the top, the date bottom left and the logo bottom right — at 9:16 (1080×1920), 4:5 (1080×1350) or 16:9 (1920×1080).
 
 ```json
 { "slug": "two-earlier-ai-companies",
@@ -81,6 +81,24 @@ The photo is `cover`-cropped into a 1080×600 band; the **Vertical crop** slider
 ```
 
 The line starts at 82px and gives up size — down to 44px — to land on two lines rather than three, so a normal sentence sets the way the reference does. **Show safe-zone guides** paints red over the strips TikTok and Reels cover with their own caption, buttons and tabs: 250px off the top, 430px off the bottom, 180px off the right. The line and the badge row both sit inside that box, and the guides never appear in the exported PNG.
+
+**Charts.** Numbers from the story as an image, at 4:5, 9:16 or 16:9. Seven forms — columns, bars, line, area, scatter, donut, and a stat tile for when the story is a single number — each labelled in the picker with the job it does.
+
+```json
+{ "type": "bar",
+  "title": "America's polysilicon capacity collapsed",
+  "subtitle": "US share of world polysilicon capacity",
+  "unit": "%",
+  "categories": ["2005", "2010", "2015", "2020", "2024"],
+  "series": [{ "name": "US share", "values": [50, 34, 12, 4, 1.8] }],
+  "source": "Source: Commerce Department" }
+```
+
+`emphasis` takes the index of the one series that matters and greys the rest; `points` replaces categories/series for a scatter; `value` / `delta` / `label` replace them for a stat. `xLabel` and `yLabel` are both set horizontally, so nothing has to be read sideways.
+
+Because the output is a still, there is no tooltip to fall back on — every value has to be on the image. Value labels are therefore on by default, only the last point of a line is labelled, and only the extremes of a scatter are named.
+
+**The palette** is six colours in a fixed order, the first being a brand gold. It was chosen by searching orderings and running Anthropic's data-viz validator against the ink surface: worst adjacent CVD ΔE 14.8, worst adjacent normal-vision ΔE 19.7, every slot inside the dark lightness band and over 3:1 contrast, and the first three clearing the all-pairs gate that scatter needs. Colours you add or edit are checked by the same code — [assets/validate_palette.js](assets/validate_palette.js) is that validator, vendored — and the panel says in plain words what a reader would struggle with. Past the sixth slot extra series go grey rather than repeat a hue, since a repeated colour claims two series are one.
 
 **Video.** Paste or drop several images, drag the thumbnails into order, and record a vertical slideshow — 30 seconds by default, split evenly across the slides. **Motion** sets what each slide does: still, push in, pull out, alternating (the default — a long reel stops feeling like one repeated move), or a slow upward drift. **Transition** sets the handover: crossfade, hard cut, through black, or push up. An **opening title** (2s: logo, wordmark, gold rule, date) and an **end card** (2.4s: logo, `READ MORE AT`, the handle, `LINK IN BIO`) are on by default and can be switched off.
 
@@ -120,7 +138,7 @@ python tools/embed_logo.py new-logo.png    # resizes to 320px, rewrites assets/l
 
 ## Design tokens
 
-The two card renderers share one set of numbers — `T` in [assets/render.js](assets/render.js) and `T` in [cards.py](cards.py). Change a layout value in both. The poster keeps its own tokens (`P`) and the shared `SAFE` box in `render.js`; the slideshow compositor lives in [assets/video.js](assets/video.js) and imports that same `SAFE`.
+The two card renderers share one set of numbers — `T` in [assets/render.js](assets/render.js) and `T` in [cards.py](cards.py). Change a layout value in both. The poster keeps its own tokens (`P`) and the shared `SAFE` box in `render.js`; the slideshow compositor lives in [assets/video.js](assets/video.js) and imports that same `SAFE`; charts keep their own tokens and the validated palette in [assets/chart.js](assets/chart.js).
 
 1080×1350 canvas, 92px side margins, 600px photo band, 36px gap below it, 554px of usable body height (down to the date/logo band). Gold `#EFC050`, ink `#121212`, cream date `#EADFC2`. Playfair Display 700 for headlines, Montserrat 300/400 for body.
 
@@ -131,6 +149,8 @@ Fonts are self-hosted in `assets/fonts/` (Playfair Display and Montserrat, from 
 - `visual-check.html` — renders both cards from the sample and from a long-text stress case; use it to eyeball regressions after a layout change
 - `dom-reference.html` — a DOM copy of `cards.py`, used to verify the canvas port matches the Playwright output
 - `embed_logo.py` — regenerates the inlined logo
+
+[guide.html](guide.html) is the illustrated manual: every picture on it is drawn at page load by the same renderers the tool uses, so it cannot fall out of step with the output.
 
 Both check pages take `?case=stress`.
 
@@ -145,7 +165,10 @@ Both check pages take `?case=stress`.
 ## 页面
 
 - [index.html](index.html)：整条帖子——两张卡片 + caption。
-- [studio.html](studio.html)：工作台——单张卡片、9:16 竖版海报、视频。顶部按钮互相跳转，语言设置共用。
+- [studio.html](studio.html)：工作台——单张卡片、海报、数据图表、视频。
+- [guide.html](guide.html)：带插图的使用说明，插图是用工具本身的代码现画的。
+
+顶部按钮互相跳转，语言设置三个页面共用。
 
 ## 用法
 
@@ -165,7 +188,25 @@ Both check pages take `?case=stress`.
 
 **单张卡片**：两个模板各自独立，提示词也各自独立，只问自己用得到的字段（图片卡要 `category`/`headline`/`subtitle`/`date`，要点卡要 `eyebrow`/`heading`/`bullets`/`date`）。这两个提示词不含 caption，需要整条帖子请回主页。
 
-**竖版海报 9:16**：新版式。1080×1920 居中裁切满屏照片，顶部一行 Montserrat 粗体大字，日期左下、logo 右下。JSON 只要 `line` / `date` / `slug` 三个字段。文字从 82px 起，必要时降到 44px 以内，优先排成两行而不是三行。勾选「显示安全区参考线」会用红色标出 TikTok / Reels 会盖住的区域（上 250px、下 430px、右 180px），文字和日期 logo 都在安全区内，参考线不会导出到 PNG。
+**海报**：居中裁切的满屏照片，顶部一行 Montserrat 粗体大字，日期左下、logo 右下；可选 9:16（1080×1920）、4:5（1080×1350）、16:9（1920×1080）。JSON 只要 `line` / `date` / `slug` 三个字段。文字从 82px 起，必要时降到 44px 以内，优先排成两行而不是三行。勾选「显示安全区参考线」会用红色标出 TikTok / Reels 会盖住的区域（上 250px、下 430px、右 180px），文字和日期 logo 都在安全区内，参考线不会导出到 PNG。
+
+**图表**：把新闻里的数字做成图，可选 4:5 / 9:16 / 16:9。七种图形——柱状、条形、折线、面积、散点、环形，以及「数字卡」（故事本身就是一个数字时用它）——下拉框里每一项都写清楚了它适合干什么。
+
+```json
+{ "type": "bar",
+  "title": "America's polysilicon capacity collapsed",
+  "subtitle": "US share of world polysilicon capacity",
+  "unit": "%",
+  "categories": ["2005", "2010", "2015", "2020", "2024"],
+  "series": [{ "name": "US share", "values": [50, 34, 12, 4, 1.8] }],
+  "source": "Source: Commerce Department" }
+```
+
+`emphasis` 填要强调的系列序号，其余画成灰色；散点图用 `points` 代替 categories/series；数字卡用 `value` / `delta` / `label`。`xLabel` 和 `yLabel` 都是横排的，不用歪头看。
+
+因为输出是静态图，没有鼠标悬停可以兜底——每个数都必须印在图上。所以数值标签默认开启，折线只标最后一个点，散点只标极值点。
+
+**配色**是六个固定顺序的颜色，第一个是品牌金。这个顺序是穷举排列后用 Anthropic 数据可视化规范里的验证器在深色底上逐项检查选出来的：最差相邻对色盲 ΔE 14.8、常视 ΔE 19.7，六个颜色全部落在深色明度区间内且对比度超过 3:1，前三个还通过了散点图需要的全对检查。你自己加或改的颜色会用同一份代码检查——[assets/validate_palette.js](assets/validate_palette.js) 就是那个验证器（已随项目一起收录）——面板会用大白话告诉你读者会在哪里读不出来。超过第六个之后，多出来的系列会变灰而不是重复用色，因为重复的颜色等于在说这两个系列是同一个。
 
 **视频**：粘贴或拖入多张图，拖动缩略图排序，导出竖版幻灯片视频。默认 30 秒平均分给每张。「画面动效」选每张图自己怎么动：静止、缓慢推近、缓慢拉远、推近/拉远交替（默认，多张连播不会显得一直在重复同一个动作）、缓慢上移。「转场」选两张之间怎么切：交叉淡入、硬切、黑场过渡、向上推移。片头（2 秒：logo + 刊名 + 金线 + 日期）和片尾（2.4 秒：logo + READ MORE AT + 账号 + LINK IN BIO）默认开启，可以关掉。
 

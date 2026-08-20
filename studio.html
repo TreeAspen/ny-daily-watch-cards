@@ -109,6 +109,20 @@
     background:rgba(0,0,0,.62)}
   .thumb .mv button{flex:1;border:none;border-radius:0;background:none;padding:5px;font-size:12px}
 
+  .swatches{display:flex;flex-wrap:wrap;gap:10px}
+  .chip{position:relative;width:64px;height:52px;border-radius:8px;border:1px solid var(--line);
+    overflow:hidden;cursor:pointer}
+  .chip input{position:absolute;inset:0;opacity:0;width:100%;height:100%;cursor:pointer;border:none}
+  .chip .k{position:absolute;left:5px;bottom:3px;font:600 9.5px/1 'Montserrat';
+    color:#000;background:rgba(255,255,255,.72);padding:2px 4px;border-radius:3px}
+  .chip .x{position:absolute;top:2px;right:2px;background:rgba(0,0,0,.5);border:none;color:#fff;
+    padding:1px 4px;font-size:10px;border-radius:3px;line-height:1.2;opacity:.4;transition:.15s}
+  .chip:hover .x{opacity:1}
+  #k-check{margin-top:12px;font-size:12.5px;display:flex;flex-direction:column;gap:4px}
+  #k-check:empty{margin:0}
+  #k-check .pass{color:var(--ok)}
+  #k-check .warn{color:var(--bad)}
+  #k-figure canvas{max-height:600px;width:auto}
   progress{width:100%;height:8px;accent-color:var(--gold);margin-top:12px}
   .hint{font-size:12.5px;color:var(--dim);margin-top:10px}
   code{background:#131313;border:1px solid var(--line);border-radius:4px;padding:1px 5px;font-size:12px}
@@ -120,6 +134,7 @@
   <h1 data-i18n="appTitle"></h1>
   <span class="spacer"></span>
   <a class="nav" href="index.html" data-i18n="navBack"></a>
+  <a class="nav" href="guide.html" data-i18n="navGuide"></a>
   <div class="langs">
     <button data-lang="en">English</button>
     <button data-lang="zh">中文</button>
@@ -130,6 +145,7 @@
 <div class="tabs" role="tablist">
   <button role="tab" data-tab="single" data-i18n="tabSingle"></button>
   <button role="tab" data-tab="poster" data-i18n="tabPoster"></button>
+  <button role="tab" data-tab="chart" data-i18n="tabChart"></button>
   <button role="tab" data-tab="video" data-i18n="tabVideo"></button>
 </div>
 
@@ -200,6 +216,14 @@
           <span id="p-focus-val"></span>
         </div>
         <div class="row" style="margin-top:14px">
+          <label for="p-ratio" data-i18n="ratioLabel"></label>
+          <div class="seg" id="p-ratio">
+            <button data-ratio="9:16">9:16</button>
+            <button data-ratio="4:5">4:5</button>
+            <button data-ratio="16:9">16:9</button>
+          </div>
+        </div>
+        <div class="row" style="margin-top:14px">
           <label class="check"><input type="checkbox" id="p-guides">
             <span data-i18n="showGuides"></span></label>
         </div>
@@ -215,6 +239,58 @@
         <button id="p-copy" data-i18n="btnCopyPng"></button>
       </div>
       <div class="status" id="p-status"></div>
+    </div>
+  </div>
+</section>
+
+<!-- ---------- chart ---------- -->
+<section id="tab-chart" hidden>
+  <div class="grid">
+    <div>
+      <div class="panel">
+        <div class="label"><span data-i18n="stepData"></span><span class="row">
+          <button class="ghost" id="k-prompt" data-i18n="btnPrompt"></button>
+          <button class="ghost" id="k-sample" data-i18n="btnSample"></button></span></div>
+        <textarea id="k-json" spellcheck="false"></textarea>
+      </div>
+
+      <div class="panel">
+        <div class="label"><span data-i18n="stepFormat"></span></div>
+        <div class="row">
+          <label for="k-ratio" data-i18n="ratioLabel"></label>
+          <div class="seg" id="k-ratio">
+            <button data-ratio="4:5">4:5</button>
+            <button data-ratio="9:16">9:16</button>
+            <button data-ratio="16:9">16:9</button>
+          </div>
+        </div>
+        <div class="row" style="margin-top:14px">
+          <label for="k-type" data-i18n="typeLabel"></label>
+          <select id="k-type"></select>
+          <label class="check"><input type="checkbox" id="k-values" checked>
+            <span data-i18n="valueLabels"></span></label>
+        </div>
+        <p class="hint" id="k-type-hint"></p>
+      </div>
+
+      <div class="panel">
+        <div class="label"><span data-i18n="stepPalette"></span><span class="row">
+          <button class="ghost" id="k-add" data-i18n="btnAddColour"></button>
+          <button class="ghost" id="k-reset" data-i18n="btnResetPalette"></button></span></div>
+        <div class="swatches" id="k-swatches"></div>
+        <div id="k-check"></div>
+        <p class="hint" data-i18n="paletteNote"></p>
+      </div>
+    </div>
+
+    <div>
+      <figure id="k-figure"><canvas id="k-canvas"></canvas></figure>
+      <div class="meta" id="k-meta"></div>
+      <div class="row" style="margin-top:12px">
+        <button class="primary" id="k-download" data-i18n="btnDownloadPng"></button>
+        <button id="k-copy" data-i18n="btnCopyPng"></button>
+      </div>
+      <div class="status" id="k-status"></div>
     </div>
   </div>
 </section>
@@ -278,21 +354,61 @@
 
 <script src="assets/logo.js"></script>
 <script type="module">
-import { renderPhotoCard, renderDarkCard, renderPoster, FONT_SPECS, loadImage } from './assets/render.js';
+import { renderPhotoCard, renderDarkCard, renderPoster, POSTER_RATIOS, FONT_SPECS, loadImage }
+  from './assets/render.js';
+import { renderChart, RATIOS, CHART_TYPES, BRAND_PALETTE } from './assets/chart.js';
+import { validate } from './assets/validate_palette.js';
 import { drawFrame, drawIntro, recordVideo, pickMime, MOTIONS, TRANSITIONS, V }
   from './assets/video.js';
 
 const $ = (id) => document.getElementById(id);
 const LANG_STORE = 'ndw-cards-lang';
-const STORE = { single: 'ndw-studio-single', poster: 'ndw-studio-poster' };
+const STORE = { single: 'ndw-studio-single', poster: 'ndw-studio-poster',
+  chart: 'ndw-studio-chart', palette: 'ndw-studio-palette' };
 
 /* ---- strings ------------------------------------------------------- */
 const STR = {
   en: {
     appTitle: 'NY Daily Watch · Studio',
     navBack: '← Post builder',
-    lede: 'One card at a time, the 9:16 poster, and the video cut. Paste an image anywhere with <kbd>Ctrl</kbd>+<kbd>V</kbd> — it lands in whichever tab is open.',
-    tabSingle: 'Single card', tabPoster: 'Poster 9:16', tabVideo: 'Video',
+    navGuide: 'Guide',
+    lede: 'One card at a time, the full-bleed poster, charts, and the video cut. Paste an image anywhere with <kbd>Ctrl</kbd>+<kbd>V</kbd> — it lands in whichever tab is open.',
+    tabSingle: 'Single card', tabPoster: 'Poster', tabVideo: 'Video',
+    tabChart: 'Chart',
+    stepData: 'Chart JSON',
+    stepFormat: 'Format',
+    stepPalette: 'Palette',
+    ratioLabel: 'Ratio',
+    typeLabel: 'Type',
+    valueLabels: 'Value labels',
+    btnAddColour: '+ Add colour',
+    btnResetPalette: 'Reset to brand',
+    paletteNote: 'Colours are checked the way the brand palette was chosen: lightness on this ink background, how grey a hue reads, whether neighbouring series stay apart for colourblind readers, and contrast. Slot 1 is used first, so its colour is the one a single-series chart wears.',
+    type_bar: 'Columns — compare categories',
+    type_hbar: 'Bars — long labels, or many rows',
+    type_line: 'Line — change over time',
+    type_area: 'Area — one series over time',
+    type_scatter: 'Scatter — two measures',
+    type_donut: 'Donut — part of a whole',
+    type_stat: 'Stat — the story is one number',
+    hint_bar: 'One series gets one colour for every column — never darker-where-bigger.',
+    hint_hbar: 'Horizontal bars fit long category names without turning the labels sideways.',
+    hint_line: 'Only the last point is labelled; a number on every point goes unread.',
+    hint_area: 'Fill under a single line. For two or more series use a plain line chart.',
+    hint_scatter: 'Needs "points": [{"x":1,"y":2,"name":"…"}]. Only the extremes are named.',
+    hint_donut: 'Six slices at most, and only for part-of-a-whole at a glance. Close values belong in bars.',
+    hint_stat: 'Uses "value", "delta" and "label". A single number is a stat, not a one-bar chart.',
+    chartMeta: (t, w, h, n) => `${t} · ${w}×${h} · ${n} series`,
+    warn_tooManySeries: (n, cap) => `${n} series is past the ${cap}-colour palette — fold the tail into "Other" or split the chart.`,
+    warn_scatterCap: (cap) => `Scatter can only keep ${cap} series apart reliably — fold or facet the rest.`,
+    warn_donutCap: 'More than six slices: use bars instead.',
+    warn_useStat: 'One number is a stat tile, not a one-bar chart — switch the type to Stat.',
+    checkPass: 'Palette checks pass',
+    check_lightness: 'Too light or too dark against the ink background',
+    check_chroma: 'Reads as grey, not as its own series',
+    check_cvd: 'Neighbouring colours are close for colourblind readers',
+    check_normal: 'Neighbouring colours are close even in full colour',
+    check_contrast: 'Faint against the background',
 
     pickTemplate: 'Template',
     tplPhoto: 'Photo card', tplDark: 'Bullet card',
@@ -361,8 +477,44 @@ const STR = {
   zh: {
     appTitle: 'NY Daily Watch · 工作台',
     navBack: '← 整条帖子',
-    lede: '单张卡片、9:16 竖版海报、视频剪辑。<kbd>Ctrl</kbd>+<kbd>V</kbd> 在任意位置贴图，会落到当前打开的标签页。',
-    tabSingle: '单张卡片', tabPoster: '竖版海报 9:16', tabVideo: '视频',
+    navGuide: '使用说明',
+    lede: '单张卡片、满屏海报、数据图表、视频剪辑。<kbd>Ctrl</kbd>+<kbd>V</kbd> 在任意位置贴图，会落到当前打开的标签页。',
+    tabSingle: '单张卡片', tabPoster: '海报', tabVideo: '视频',
+    tabChart: '图表',
+    stepData: '图表 JSON',
+    stepFormat: '版式',
+    stepPalette: '配色',
+    ratioLabel: '比例',
+    typeLabel: '图形',
+    valueLabels: '显示数值',
+    btnAddColour: '+ 加一个颜色',
+    btnResetPalette: '恢复品牌配色',
+    paletteNote: '这里用挑选品牌配色时同一套标准检查你的颜色：在这个深色底上的明度、颜色会不会灰到读不出来、相邻两个系列对色盲读者是否还能分辨、以及对比度。第 1 个颜色优先使用，单系列图表用的就是它。',
+    type_bar: '柱状图 —— 比较几个类别',
+    type_hbar: '条形图 —— 标签长或条目多',
+    type_line: '折线图 —— 随时间变化',
+    type_area: '面积图 —— 单系列随时间变化',
+    type_scatter: '散点图 —— 两个指标的关系',
+    type_donut: '环形图 —— 占整体的比例',
+    type_stat: '数字卡 —— 故事就是一个数',
+    hint_bar: '单系列时所有柱子用同一个颜色——不要按数值深浅上色。',
+    hint_hbar: '横着排能放下长的类别名，不用把标签竖过来。',
+    hint_line: '只标最后一个点的数值；每个点都标数字没人会看。',
+    hint_area: '单条线下方填充。两条以上请用普通折线图。',
+    hint_scatter: '需要 "points": [{"x":1,"y":2,"name":"…"}]，只标注极值点。',
+    hint_donut: '最多六块，只适合一眼看占比。数值接近的对比请用条形图。',
+    hint_stat: '用 "value"、"delta"、"label" 三个字段。一个数就是数字卡，不是只有一根柱子的柱状图。',
+    chartMeta: (t, w, h, n) => `${t} · ${w}×${h} · ${n} 个系列`,
+    warn_tooManySeries: (n, cap) => `${n} 个系列超过了 ${cap} 色配色板——把尾部合并成「其他」或拆成两张图。`,
+    warn_scatterCap: (cap) => `散点图最多只能可靠区分 ${cap} 个系列，其余请合并或拆图。`,
+    warn_donutCap: '超过六块了，请改用条形图。',
+    warn_useStat: '只有一个数应该用数字卡，而不是只有一根柱子的柱状图——把图形改成「数字卡」。',
+    checkPass: '配色检查通过',
+    check_lightness: '在深色底上太亮或太暗',
+    check_chroma: '太灰，读不出是一个独立系列',
+    check_cvd: '相邻颜色对色盲读者太接近',
+    check_normal: '相邻颜色即使正常视觉也太接近',
+    check_contrast: '和背景对比度偏低',
 
     pickTemplate: '模板',
     tplPhoto: '图片卡', tplDark: '要点卡',
@@ -470,6 +622,28 @@ Exactly three bullets, each under 20 words, each able to stand alone without the
 }
 
 The line is the only text on the poster and sits in bold over a full-bleed photo, so it carries the whole story: a plain statement of what happened, with the number, name or date that makes it matter. Under 12 words, one sentence, English. No questions, no marketing words, no hashtags, never invent a quote.${TAIL}`,
+  chart: `Turn the numbers in this news story into a NY Daily Watch chart. Output JSON only — no explanation, no code fences:
+
+{
+  "slug": "short-hyphenated-english-slug-for-filenames",
+  "type": "bar",
+  "title": "what the chart shows, under 10 words",
+  "subtitle": "one sentence of context, under 16 words",
+  "unit": "" or "%" or "$",
+  "categories": ["label 1", "label 2", "label 3"],
+  "series": [{ "name": "series name", "values": [1, 2, 3] }],
+  "source": "Source: the agency, company or outlet the numbers come from",
+  "emphasis": null
+}
+
+Pick "type" from the job the numbers do:
+- "bar" compare a handful of categories · "hbar" the same when labels are long or rows are many
+- "line" change over time · "area" change over time, one series only
+- "scatter" two measures against each other — replace categories/series with "points": [{"x":1,"y":2,"name":"…"}]
+- "donut" part of a whole, six slices at most
+- "stat" the story is a single number — replace categories/series with "value", "delta" and "label"
+
+Rules: six series at most, three at most for a scatter. Every number must appear in the story — never invent, estimate or extend a series. If the story is about one series among several, set "emphasis" to its index (0-based) and the rest are drawn grey. Keep category labels under four words. All text in English.${TAIL}`,
 };
 
 const SAMPLES = {
@@ -495,6 +669,16 @@ const SAMPLES = {
     slug: 'two-earlier-ai-companies',
     line: 'Two earlier AI companies failed before this one.',
     date: 'August 3, 2026',
+  },
+  chart: {
+    slug: 'polysilicon-capacity',
+    type: 'bar',
+    title: 'America’s polysilicon capacity collapsed',
+    subtitle: 'US share of world polysilicon capacity',
+    unit: '%',
+    categories: ['2005', '2010', '2015', '2020', '2024'],
+    series: [{ name: 'US share of world capacity', values: [50, 34, 12, 4, 1.8] }],
+    source: 'Source: Commerce Department',
   },
 };
 
@@ -674,7 +858,7 @@ async function setSinglePhoto(files) {
 wireDrop($('s-drop'), $('s-file'), setSinglePhoto);
 
 /* ---- tab 2 : poster -------------------------------------------------- */
-const poster = { photo: null, data: null };
+const poster = { photo: null, data: null, ratio: '9:16' };
 
 function posterDropText() {
   if (poster.photo) return `<span>${t('dropLoaded', poster.photo.width, poster.photo.height)}</span>`;
@@ -684,15 +868,16 @@ function posterDropText() {
 function paintPoster() {
   const c = $('p-canvas');
   if (!poster.data) {
-    c.width = 1080; c.height = 1920;
+    const [PW, PH] = POSTER_RATIOS[poster.ratio];
+    c.width = PW; c.height = PH;
     const ctx = c.getContext('2d');
-    ctx.fillStyle = '#121212'; ctx.fillRect(0, 0, 1080, 1920);
+    ctx.fillStyle = '#121212'; ctx.fillRect(0, 0, PW, PH);
     $('p-meta').textContent = '';
     $('p-download').disabled = $('p-copy').disabled = true;
     return;
   }
   const f = renderPoster(c, poster.data, {
-    photo: poster.photo, logo: logoImg,
+    photo: poster.photo, logo: logoImg, ratio: poster.ratio,
     focus: +$('p-focus').value / 100, guides: $('p-guides').checked,
   });
   $('p-meta').textContent = t('metaPoster', f.size, f.lines) + (f.overflow ? t('metaPosterOver') : '');
@@ -718,6 +903,12 @@ $('p-focus').addEventListener('input', () => {
   paintPoster();
 });
 $('p-guides').addEventListener('change', paintPoster);
+document.querySelectorAll('#p-ratio button').forEach((b) => b.addEventListener('click', () => {
+  poster.ratio = b.dataset.ratio;
+  document.querySelectorAll('#p-ratio button').forEach((x) =>
+    x.setAttribute('aria-pressed', String(x.dataset.ratio === poster.ratio)));
+  paintPoster();
+}));
 $('p-prompt').addEventListener('click', (e) => copyText(PROMPTS.poster, e.target, 'btnPrompt'));
 $('p-sample').addEventListener('click', () => {
   $('p-json').value = JSON.stringify(SAMPLES.poster, null, 2);
@@ -734,7 +925,7 @@ $('p-download').addEventListener('click', async () => {
   // Guides are a preview aid; the exported file never carries them.
   const guides = $('p-guides').checked;
   if (guides) { $('p-guides').checked = false; paintPoster(); }
-  const name = `${poster.data.slug || slugify(poster.data.line)}-poster.png`;
+  const name = `${poster.data.slug || slugify(poster.data.line)}-poster-${poster.ratio.replace(':', 'x')}.png`;
   saveBlob(await toBlob($('p-canvas')), name);
   if (guides) { $('p-guides').checked = true; paintPoster(); }
   status($('p-status'), 'saved', 'ok', name);
@@ -944,11 +1135,143 @@ $('v-render').addEventListener('click', async () => {
 });
 $('v-cancel').addEventListener('click', () => { video.recording = false; });
 
+/* ---- tab : chart ------------------------------------------------------ */
+const chart = { data: null, ratio: '4:5', palette: [...BRAND_PALETTE], fit: null };
+
+function paintChart() {
+  const c = $('k-canvas');
+  if (!chart.data) {
+    const [W, H] = RATIOS[chart.ratio];
+    c.width = W; c.height = H;
+    const ctx = c.getContext('2d');
+    ctx.fillStyle = '#121212'; ctx.fillRect(0, 0, W, H);
+    $('k-meta').textContent = '';
+    $('k-download').disabled = $('k-copy').disabled = true;
+    return;
+  }
+  const d = { ...chart.data, type: $('k-type').value, valueLabels: $('k-values').checked };
+  chart.fit = renderChart(c, d, { palette: chart.palette, ratio: chart.ratio, logo: logoImg });
+
+  const warn = chart.fit.warnings.map((w) => t('warn_' + w.code, ...Object.values(w).slice(1)));
+  $('k-meta').textContent = t('chartMeta', t('type_' + d.type).split(' \u2014')[0],
+    chart.fit.W, chart.fit.H, chart.fit.series) + (warn.length ? ' \u00b7 ' + warn.join(' ') : '');
+  $('k-meta').className = 'meta' + (warn.length ? ' warn' : '');
+  $('k-download').disabled = $('k-copy').disabled = false;
+}
+
+async function readChart() {
+  await ensureFonts();
+  const raw = $('k-json').value;
+  localStorage.setItem(STORE.chart, raw);
+  if (!raw.trim()) { chart.data = null; status($('k-status'), 'waiting'); paintChart(); return; }
+  try { chart.data = normalize(parseJSON(raw)); }
+  catch (e) { status($('k-status'), 'parseErr', 'err', e.message); return; }
+  // The JSON may name its own chart type; the picker follows it.
+  if (chart.data.type && CHART_TYPES.includes(chart.data.type)) $('k-type').value = chart.data.type;
+  setTypeHint();
+  status($('k-status'), 'ready', 'ok', chart.data.slug || slugify(chart.data.title));
+  paintChart();
+}
+
+function setTypeHint() { $('k-type-hint').textContent = t('hint_' + $('k-type').value); }
+
+/* Same checks the brand palette was picked with, run on whatever is in the
+   swatch row \u2014 so a hand-added colour cannot quietly break the chart. */
+function checkPalette() {
+  const box = $('k-check');
+  box.innerHTML = '';
+  if (chart.palette.length < 2) return;
+  const r = validate(chart.palette, { mode: 'dark', surface: '#121212' });
+  const KEY = {
+    'Lightness band': 'check_lightness', 'Chroma floor': 'check_chroma',
+    'CVD separation': 'check_cvd', 'Normal-vision floor': 'check_normal',
+    'Contrast vs surface': 'check_contrast',
+  };
+  const bad = r.report.filter(([, state]) => state === false || state === 'fail'
+    || state === 'floor' || state === 'relief');
+  if (!bad.length) {
+    const el = document.createElement('div');
+    el.className = 'pass'; el.textContent = '\u2713 ' + t('checkPass');
+    box.appendChild(el);
+    return;
+  }
+  for (const [name, , detail] of bad) {
+    const el = document.createElement('div');
+    el.className = 'warn';
+    el.textContent = '\u00b7 ' + t(KEY[name]) + (detail ? ' \u2014 ' + detail : '');
+    box.appendChild(el);
+  }
+}
+
+function renderSwatches() {
+  const box = $('k-swatches');
+  box.innerHTML = '';
+  chart.palette.forEach((hex, i) => {
+    const chip = document.createElement('div');
+    chip.className = 'chip';
+    chip.style.background = hex;
+    chip.innerHTML = '<input type="color" value="' + hex + '" data-i="' + i + '">' +
+      '<span class="k">' + (i + 1) + '</span>' +
+      (chart.palette.length > 1 ? '<button class="x" data-del="' + i + '">\u2715</button>' : '');
+    box.appendChild(chip);
+  });
+  localStorage.setItem(STORE.palette, JSON.stringify(chart.palette));
+  checkPalette();
+}
+
+$('k-swatches').addEventListener('input', (e) => {
+  const i = e.target.dataset.i;
+  if (i == null) return;
+  chart.palette[+i] = e.target.value.toUpperCase();
+  renderSwatches();
+  paintChart();
+});
+$('k-swatches').addEventListener('click', (e) => {
+  const i = e.target.dataset.del;
+  if (i == null) return;
+  chart.palette.splice(+i, 1);
+  renderSwatches();
+  paintChart();
+});
+$('k-add').addEventListener('click', () => {
+  chart.palette.push(BRAND_PALETTE[chart.palette.length % BRAND_PALETTE.length]);
+  renderSwatches();
+  paintChart();
+});
+$('k-reset').addEventListener('click', () => {
+  chart.palette = [...BRAND_PALETTE];
+  renderSwatches();
+  paintChart();
+});
+
+let kTimer;
+$('k-json').addEventListener('input', () => { clearTimeout(kTimer); kTimer = setTimeout(readChart, 180); });
+$('k-type').addEventListener('change', () => { setTypeHint(); paintChart(); });
+$('k-values').addEventListener('change', paintChart);
+document.querySelectorAll('#k-ratio button').forEach((b) => b.addEventListener('click', () => {
+  chart.ratio = b.dataset.ratio;
+  document.querySelectorAll('#k-ratio button').forEach((x) =>
+    x.setAttribute('aria-pressed', String(x.dataset.ratio === chart.ratio)));
+  paintChart();
+}));
+$('k-prompt').addEventListener('click', (e) => copyText(PROMPTS.chart, e.target, 'btnPrompt'));
+$('k-sample').addEventListener('click', () => {
+  $('k-json').value = JSON.stringify(SAMPLES.chart, null, 2);
+  readChart();
+});
+$('k-download').addEventListener('click', async () => {
+  const base = chart.data.slug || slugify(chart.data.title);
+  const name = base + '-chart-' + chart.ratio.replace(':', 'x') + '.png';
+  saveBlob(await toBlob($('k-canvas')), name);
+  status($('k-status'), 'saved', 'ok', name);
+});
+$('k-copy').addEventListener('click', (e) => copyCanvas($('k-canvas'), e.target, 'btnCopyPng', $('k-status')));
+
 /* ---- tabs, paste, language ------------------------------------------ */
 let tab = 'single';
 function setTab(name) {
   tab = name;
-  for (const n of ['single', 'poster', 'video']) $('tab-' + n).hidden = n !== name;
+  for (const n of ['single', 'poster', 'chart', 'video']) $('tab-' + n).hidden = n !== name;
   document.querySelectorAll('[data-tab]').forEach((b) =>
     b.setAttribute('aria-selected', String(b.dataset.tab === name)));
   if (name !== 'video') stopPlay();
@@ -965,7 +1288,7 @@ window.addEventListener('paste', (e) => {
   e.preventDefault();
   if (tab === 'video') addSlides(files);
   else if (tab === 'poster') setPosterPhoto(files);
-  else setSinglePhoto(files);
+  else if (tab === 'single') setSinglePhoto(files);   // the chart tab takes no image
 });
 
 /* Options carry translated labels, so they are rebuilt on a language switch —
@@ -1003,10 +1326,14 @@ function applyLang() {
   $('v-play').textContent = video.playing ? t('btnPause') : t('btnPlay');
   fillSelect($('v-motion'), MOTIONS, 'motion_', 'alternate');
   fillSelect($('v-trans'), TRANSITIONS, 'trans_', 'crossfade');
+  fillSelect($('k-type'), CHART_TYPES, 'type_', 'bar');
+  setTypeHint();
+  checkPalette();
   ['s-status', 'p-status', 'v-status'].forEach((id) => restatus($(id)));
   updateVideoMeta();
   if (single.data) paintSingle();
   if (poster.data) paintPoster();
+  if (chart.data) paintChart();
 }
 document.querySelectorAll('[data-lang]').forEach((b) => b.addEventListener('click', () => {
   lang = b.dataset.lang;
@@ -1024,17 +1351,30 @@ document.querySelectorAll('[data-lang]').forEach((b) => b.addEventListener('clic
   $('v-canvas').width = V.W; $('v-canvas').height = V.H;
   $('s-json').value = localStorage.getItem(STORE.single) || '';
   $('p-json').value = localStorage.getItem(STORE.poster) || '';
+  $('k-json').value = localStorage.getItem(STORE.chart) || '';
+  try {
+    const saved = JSON.parse(localStorage.getItem(STORE.palette) || 'null');
+    if (Array.isArray(saved) && saved.length) chart.palette = saved;
+  } catch (_) { /* a corrupt entry just falls back to the brand palette */ }
   if (q.has('demo')) {
     $('s-json').value = JSON.stringify(SAMPLES.photo, null, 2);
     $('p-json').value = JSON.stringify(SAMPLES.poster, null, 2);
+    $('k-json').value = JSON.stringify(SAMPLES.chart, null, 2);
   }
 
   setTemplate('photo');
+  for (const [id, val] of [['p-ratio', poster.ratio], ['k-ratio', chart.ratio]]) {
+    document.querySelectorAll('#' + id + ' button').forEach((b) =>
+      b.setAttribute('aria-pressed', String(b.dataset.ratio === val)));
+  }
+  renderSwatches();
   applyLang();
-  setTab(['single', 'poster', 'video'].includes(location.hash.slice(1)) ? location.hash.slice(1) : 'single');
+  setTab(['single', 'poster', 'chart', 'video'].includes(location.hash.slice(1))
+    ? location.hash.slice(1) : 'single');
   await ensureFonts();
   await readSingle();
   await readPoster();
+  await readChart();
   paintVideoAt(0);
 })();
 </script>
