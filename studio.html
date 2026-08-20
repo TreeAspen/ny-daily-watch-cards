@@ -96,17 +96,25 @@
 
   .strip{display:flex;flex-wrap:wrap;gap:10px;margin-top:12px}
   .strip:empty{margin:0}
-  .thumb{position:relative;width:104px;border:1px solid var(--line);border-radius:8px;
+  .thumb{position:relative;width:150px;border:1px solid var(--line);border-radius:8px;
     overflow:hidden;background:#0d0d0d;cursor:grab}
   .thumb.drag{opacity:.35}
   .thumb.target{border-color:var(--gold)}
+  .thumb .shot{position:relative}
   .thumb img{display:block;width:100%;height:132px;object-fit:cover}
+  .thumb .dur{position:absolute;right:5px;top:5px;background:rgba(0,0,0,.72);color:#EADFC2;
+    font:600 10px/1 'Montserrat';padding:3px 5px;border-radius:3px}
+  .thumb .cap{width:100%;border:none;border-top:1px solid var(--line);background:#151515;
+    color:var(--text);padding:7px 8px;font:400 11.5px/1.3 'Montserrat'}
+  .thumb .cap:focus{outline:none;background:#1d1a12}
+  .thumb .cap::placeholder{color:#6b6862}
   .thumb .n{position:absolute;top:5px;left:5px;background:var(--gold);color:#1a1400;
     font:700 11px/1 'Montserrat';padding:4px 7px;border-radius:4px}
   .thumb .x{position:absolute;top:4px;right:4px;background:rgba(0,0,0,.66);border:none;
     color:#fff;padding:4px 7px;font-size:12px;border-radius:4px}
   .thumb .mv{position:absolute;bottom:0;left:0;right:0;display:flex;
     background:rgba(0,0,0,.62)}
+  .thumb .shot .mv{bottom:0}
   .thumb .mv button{flex:1;border:none;border-radius:0;background:none;padding:5px;font-size:12px}
 
   .swatches{display:flex;flex-wrap:wrap;gap:10px}
@@ -303,7 +311,7 @@
         <div class="label"><span data-i18n="stepSlides"></span><span class="row">
           <button class="ghost" id="v-clear" data-i18n="btnClearAll"></button></span></div>
         <div class="drop" id="v-drop" tabindex="0"></div>
-        <input type="file" id="v-file" accept="image/*" multiple hidden>
+        <input type="file" id="v-file" accept="image/*,video/*" multiple hidden>
         <div class="strip" id="v-strip"></div>
       </div>
 
@@ -319,6 +327,8 @@
             <span data-i18n="withIntro"></span></label>
           <label class="check"><input type="checkbox" id="v-outro" checked>
             <span data-i18n="withOutro"></span></label>
+          <label class="check"><input type="checkbox" id="v-audio" checked>
+            <span data-i18n="keepAudio"></span></label>
         </div>
         <div class="row" style="margin-top:14px">
           <label for="v-motion" data-i18n="motionLabel"></label>
@@ -358,8 +368,8 @@ import { renderPhotoCard, renderDarkCard, renderPoster, POSTER_RATIOS, FONT_SPEC
   from './assets/render.js';
 import { renderChart, RATIOS, CHART_TYPES, BRAND_PALETTE } from './assets/chart.js';
 import { validate } from './assets/validate_palette.js';
-import { drawFrame, drawIntro, recordVideo, pickMime, MOTIONS, TRANSITIONS, V }
-  from './assets/video.js';
+import { drawFrame, drawIntro, recordVideo, pickMime, syncClips, resetClips, isVideo,
+  MOTIONS, TRANSITIONS, V } from './assets/video.js';
 
 const $ = (id) => document.getElementById(id);
 const LANG_STORE = 'ndw-cards-lang';
@@ -403,6 +413,7 @@ const STR = {
     warn_scatterCap: (cap) => `Scatter can only keep ${cap} series apart reliably — fold or facet the rest.`,
     warn_donutCap: 'More than six slices: use bars instead.',
     warn_useStat: 'One number is a stat tile, not a one-bar chart — switch the type to Stat.',
+    warn_statBody: 'Add "body": the number alone leaves most of the frame empty. Two or three sentences of reading under it.',
     checkPass: 'Palette checks pass',
     check_lightness: 'Too light or too dark against the ink background',
     check_chroma: 'Reads as grey, not as its own series',
@@ -434,15 +445,18 @@ const STR = {
     btnCopyPng: 'Copy image',
 
     stepSlides: 'Slides',
-    dropSlides: 'Click, drag in, or paste several images',
-    dropSlidesSub: 'Cards, posters, plain photos — drag the thumbnails to reorder',
+    dropSlides: 'Click, drag in, or paste images and video clips',
+    dropSlidesSub: 'Cards, posters, photos, MP4/MOV clips — drag to reorder, type a subtitle under each',
     btnClearAll: 'Clear all',
     stepTiming: 'Timing',
     totalSecs: 'Total seconds',
     perSlide: (n, s) => `${n} slides · ${s}s each`,
     noSlides: 'No slides yet',
+    subPlaceholder: 'subtitle…',
+    clipNote: (n) => `${n} clip${n > 1 ? 's' : ''} · each slide gets the same slot, and a clip loops if it is shorter`,
     withIntro: 'Opening title',
     withOutro: 'End card',
+    keepAudio: 'Keep clip audio',
     motionLabel: 'Motion',
     transLabel: 'Transition',
     motion_none: 'Still', motion_in: 'Push in', motion_out: 'Pull out',
@@ -461,6 +475,7 @@ const STR = {
     noRecorder: 'This browser cannot record video. Chrome, Edge or Safari can.',
     webmWarn: 'This browser can only record WebM. TikTok accepts it; Instagram may not — if the upload fails, convert to MP4.',
     videoMeta: (mime, n) => `${V.W}×${V.H} · ${mime.split(';')[0]} · ${n} slides`,
+    clipFail: 'That clip could not be read — try an MP4 or MOV',
 
     waiting: 'Waiting for JSON…',
     ready: (slug) => `Ready · ${slug}`,
@@ -509,6 +524,7 @@ const STR = {
     warn_scatterCap: (cap) => `散点图最多只能可靠区分 ${cap} 个系列，其余请合并或拆图。`,
     warn_donutCap: '超过六块了，请改用条形图。',
     warn_useStat: '只有一个数应该用数字卡，而不是只有一根柱子的柱状图——把图形改成「数字卡」。',
+    warn_statBody: '建议补上 "body" 字段：只有一个数字会让画面大半是空的，下面写两三句解析。',
     checkPass: '配色检查通过',
     check_lightness: '在深色底上太亮或太暗',
     check_chroma: '太灰，读不出是一个独立系列',
@@ -540,15 +556,18 @@ const STR = {
     btnCopyPng: '复制图片',
 
     stepSlides: '素材',
-    dropSlides: '点击选择 / 拖入 / 一次粘贴多张图',
-    dropSlidesSub: '卡片、海报、普通照片都行——拖动缩略图可以排序',
+    dropSlides: '点击选择 / 拖入 / 粘贴图片或视频片段',
+    dropSlidesSub: '卡片、海报、照片、MP4/MOV 片段都行——拖动排序，每张下面可以写字幕',
     btnClearAll: '全部清空',
     stepTiming: '时长',
     totalSecs: '总秒数',
     perSlide: (n, s) => `${n} 张 · 每张 ${s} 秒`,
     noSlides: '还没有素材',
+    subPlaceholder: '字幕…',
+    clipNote: (n) => `${n} 段视频 · 每张素材分到的时长相同，片段短于时长会自动循环`,
     withIntro: '片头',
     withOutro: '片尾',
+    keepAudio: '保留片段原声',
     motionLabel: '画面动效',
     transLabel: '转场',
     motion_none: '静止', motion_in: '缓慢推近', motion_out: '缓慢拉远',
@@ -567,6 +586,7 @@ const STR = {
     noRecorder: '当前浏览器不支持录制视频，请用 Chrome / Edge / Safari。',
     webmWarn: '当前浏览器只能录 WebM。TikTok 可以传，Instagram 可能不收——如果上传失败，转成 MP4 再传。',
     videoMeta: (mime, n) => `${V.W}×${V.H} · ${mime.split(';')[0]} · ${n} 张`,
+    clipFail: '这个片段读不了，请换成 MP4 或 MOV',
 
     waiting: '等待 JSON…',
     ready: (slug) => `已就绪 · ${slug}`,
@@ -641,7 +661,9 @@ Pick "type" from the job the numbers do:
 - "line" change over time · "area" change over time, one series only
 - "scatter" two measures against each other — replace categories/series with "points": [{"x":1,"y":2,"name":"…"}]
 - "donut" part of a whole, six slices at most
-- "stat" the story is a single number — replace categories/series with "value", "delta" and "label"
+- "stat" the story is a single number — replace categories/series with "value", "delta", "label" and "body"
+
+For "stat", "value" is the figure (e.g. "2.4%"), "delta" is what moved (e.g. "down from 6% in 2015"), "label" is one line saying what the figure counts, and "body" is an array of two or three short sentences reading the number — the mechanism, and why it matters. Without "body" the frame is mostly empty.
 
 Rules: six series at most, three at most for a scatter. Every number must appear in the story — never invent, estimate or extend a series. If the story is about one series among several, set "emphasis" to its index (0-based) and the rest are drawn grey. Keep category labels under four words. All text in English.${TAIL}`,
 };
@@ -678,6 +700,20 @@ const SAMPLES = {
     unit: '%',
     categories: ['2005', '2010', '2015', '2020', '2024'],
     series: [{ name: 'US share of world capacity', values: [50, 34, 12, 4, 1.8] }],
+    source: 'Source: Commerce Department',
+  },
+  stat: {
+    slug: 'chips-share-polysilicon',
+    type: 'stat',
+    title: 'Chips use almost none of it',
+    subtitle: 'Share of world polysilicon going to semiconductors',
+    value: '2.4%',
+    delta: 'down from 6% in 2015',
+    label: 'of the world’s polysilicon goes to chipmakers.',
+    body: [
+      'Solar takes nearly all of the rest, at a purity chipmakers cannot use.',
+      'So a plant built for panels cannot switch to chips and survive on that market alone.',
+    ],
     source: 'Source: Commerce Department',
   },
 };
@@ -959,6 +995,7 @@ const videoOpts = () => ({
   fade: 0.6,
   motion: $('v-motion').value,
   transition: $('v-trans').value,
+  audio: $('v-audio').checked,
   intro: $('v-intro').checked ? INTRO_S : 0,
   outro: $('v-outro').checked ? OUTRO_S : 0,
   brand: {
@@ -973,6 +1010,8 @@ const videoOpts = () => ({
 function paintVideoAt(frac) {
   const ctx = $('v-canvas').getContext('2d');
   const o = videoOpts();
+  // Scrubbing seeks the clips; playing lets them run. Same frames either way.
+  if (video.slides.length) syncClips(video.slides, frac * o.total, o, { live: video.playing });
   // With nothing loaded, hold the finished opening title rather than a black
   // frame, so the tab shows what it makes.
   if (!video.slides.length) {
@@ -983,21 +1022,40 @@ function paintVideoAt(frac) {
   drawFrame(ctx, video.slides, frac * o.total, o);
 }
 
+const secs = (n) => (n >= 60 ? Math.floor(n / 60) + ':' + String(Math.round(n % 60)).padStart(2, '0')
+  : n.toFixed(1) + 's');
+
 function renderStrip() {
   const strip = $('v-strip');
   strip.innerHTML = '';
-  video.slides.forEach((img, i) => {
+  video.slides.forEach((slide, i) => {
     const d = document.createElement('div');
     d.className = 'thumb';
     d.draggable = true;
     d.dataset.i = i;
-    d.innerHTML = `<img src="${img.src}" alt=""><span class="n">${i + 1}</span>` +
+    const dur = slide.kind === 'video' && slide.dur
+      ? `<span class="dur">▶ ${secs(slide.dur)}</span>` : '';
+    d.innerHTML =
+      `<div class="shot"><img src="${slide.thumb || ''}" alt=""><span class="n">${i + 1}</span>` +
+      dur +
       `<button class="x" data-act="del">✕</button>` +
-      `<span class="mv"><button data-act="left">◀</button><button data-act="right">▶</button></span>`;
+      `<span class="mv"><button data-act="left">◀</button><button data-act="right">▶</button></span></div>` +
+      `<input class="cap" data-sub="${i}" draggable="false" spellcheck="false" value="">`;
+    d.querySelector('.cap').value = slide.sub || '';
+    d.querySelector('.cap').placeholder = t('subPlaceholder');
     strip.appendChild(d);
   });
   updateVideoMeta();
 }
+
+/* Subtitles are typed straight onto the strip, so the words stay attached to
+   the picture they belong to. */
+$('v-strip').addEventListener('input', (e) => {
+  const i = e.target.dataset.sub;
+  if (i == null) return;
+  video.slides[+i].sub = e.target.value;
+  paintVideoAt(+$('v-scrub').value / 1000);
+});
 
 function move(from, to) {
   if (to < 0 || to >= video.slides.length) return;
@@ -1018,6 +1076,7 @@ $('v-strip').addEventListener('click', (e) => {
 
 let dragFrom = null;
 $('v-strip').addEventListener('dragstart', (e) => {
+  if (e.target.tagName === 'INPUT') { e.preventDefault(); return; }
   const th = e.target.closest('.thumb');
   if (!th) return;
   dragFrom = +th.dataset.i;
@@ -1048,16 +1107,60 @@ function updateVideoMeta() {
   const n = video.slides.length;
   const o = videoOpts();
   const body = Math.max(0.2, o.total - o.intro - o.outro);
-  $('v-per').textContent = n ? t('perSlide', n, (body / n).toFixed(1)) : t('noSlides');
+  const clips = video.slides.filter((s) => s.kind === 'video').length;
+  $('v-per').textContent = n
+    ? t('perSlide', n, (body / n).toFixed(1)) + (clips ? ' · ' + t('clipNote', clips) : '')
+    : t('noSlides');
   $('v-meta').textContent = video.mime ? t('videoMeta', video.mime, n) : t('noRecorder');
   $('v-render').disabled = !n || !video.mime || video.recording;
 }
 
+/* A clip is loaded far enough to have a frame, then one frame is pulled off it
+   for the strip — a <video> cannot be used as a thumbnail directly. */
+function loadClip(file) {
+  return new Promise((resolve, reject) => {
+    const el = document.createElement('video');
+    el.preload = 'auto';
+    el.muted = true;              // unmuted only while recording, through the audio graph
+    el.playsInline = true;
+    el.loop = true;               // a short clip fills its slot instead of freezing
+    el.src = URL.createObjectURL(file);
+    el.onloadeddata = () => resolve(el);
+    el.onerror = () => reject(new Error('clip'));
+    setTimeout(() => reject(new Error('clip')), 20000);
+  });
+}
+
+function clipThumb(el) {
+  return new Promise((resolve) => {
+    const grab = () => {
+      const c = document.createElement('canvas');
+      c.width = el.videoWidth; c.height = el.videoHeight;
+      c.getContext('2d').drawImage(el, 0, 0);
+      el.onseeked = null;
+      try { resolve(c.toDataURL('image/jpeg', 0.7)); } catch (_) { resolve(''); }
+    };
+    el.onseeked = grab;
+    try { el.currentTime = Math.min(0.15, (el.duration || 1) / 3); }
+    catch (_) { grab(); }
+    setTimeout(grab, 2500);
+  });
+}
+
 async function addSlides(files) {
   for (const f of files) {
-    if (!f.type.startsWith('image/')) continue;
-    try { video.slides.push(await loadImage(URL.createObjectURL(f))); }
-    catch (_) { status($('v-status'), 'imgFail', 'err'); }
+    try {
+      if (f.type.startsWith('video/')) {
+        const el = await loadClip(f);
+        video.slides.push({ el, kind: 'video', sub: '', thumb: await clipThumb(el),
+          dur: el.duration || 0 });
+      } else if (f.type.startsWith('image/')) {
+        const el = await loadImage(URL.createObjectURL(f));
+        video.slides.push({ el, kind: 'image', sub: '', thumb: el.src, dur: 0 });
+      }
+    } catch (_) {
+      status($('v-status'), f.type.startsWith('video/') ? 'clipFail' : 'imgFail', 'err');
+    }
   }
   renderStrip();
   paintVideoAt(+$('v-scrub').value / 1000);
@@ -1070,7 +1173,7 @@ $('v-clear').addEventListener('click', () => {
   paintVideoAt(0);
 });
 
-for (const id of ['v-secs', 'v-intro', 'v-outro', 'v-motion', 'v-trans']) {
+for (const id of ['v-secs', 'v-intro', 'v-outro', 'v-motion', 'v-trans', 'v-audio']) {
   $(id).addEventListener('input', () => { updateVideoMeta(); paintVideoAt(+$('v-scrub').value / 1000); });
 }
 $('v-scrub').addEventListener('input', () => { stopPlay(); paintVideoAt(+$('v-scrub').value / 1000); });
@@ -1078,6 +1181,7 @@ $('v-scrub').addEventListener('input', () => { stopPlay(); paintVideoAt(+$('v-sc
 function stopPlay() {
   video.playing = false;
   cancelAnimationFrame(video.raf);
+  if (video.slides.length) resetClips(video.slides);
   $('v-play').textContent = t('btnPlay');
 }
 
@@ -1256,7 +1360,9 @@ document.querySelectorAll('#k-ratio button').forEach((b) => b.addEventListener('
 }));
 $('k-prompt').addEventListener('click', (e) => copyText(PROMPTS.chart, e.target, 'btnPrompt'));
 $('k-sample').addEventListener('click', () => {
-  $('k-json').value = JSON.stringify(SAMPLES.chart, null, 2);
+  // The stat tile needs a different shape of story, so it gets its own sample.
+  const src = $('k-type').value === 'stat' ? SAMPLES.stat : SAMPLES.chart;
+  $('k-json').value = JSON.stringify(src, null, 2);
   readChart();
 });
 $('k-download').addEventListener('click', async () => {
@@ -1324,6 +1430,7 @@ function applyLang() {
   $('p-focus-val').textContent = focusText($('p-focus').value);
   $('tpl-hint').textContent = single.tpl === 'photo' ? t('hintPhoto') : t('hintDark');
   $('v-play').textContent = video.playing ? t('btnPause') : t('btnPlay');
+  document.querySelectorAll('#v-strip .cap').forEach((n) => { n.placeholder = t('subPlaceholder'); });
   fillSelect($('v-motion'), MOTIONS, 'motion_', 'alternate');
   fillSelect($('v-trans'), TRANSITIONS, 'trans_', 'crossfade');
   fillSelect($('k-type'), CHART_TYPES, 'type_', 'bar');

@@ -94,15 +94,19 @@ The line starts at 82px and gives up size — down to 44px — to land on two li
   "source": "Source: Commerce Department" }
 ```
 
-`emphasis` takes the index of the one series that matters and greys the rest; `points` replaces categories/series for a scatter; `value` / `delta` / `label` replace them for a stat. `xLabel` and `yLabel` are both set horizontally, so nothing has to be read sideways.
+`emphasis` takes the index of the one series that matters and greys the rest; `points` replaces categories/series for a scatter; `value` / `delta` / `label` / `body` replace them for a stat — `body` being the two or three sentences that read the number, without which the frame is mostly empty and the tile warns you about it. `xLabel` and `yLabel` are both set horizontally, so nothing has to be read sideways.
 
 Because the output is a still, there is no tooltip to fall back on — every value has to be on the image. Value labels are therefore on by default, only the last point of a line is labelled, and only the extremes of a scatter are named.
 
 **The palette** is six colours in a fixed order, the first being a brand gold. It was chosen by searching orderings and running Anthropic's data-viz validator against the ink surface: worst adjacent CVD ΔE 14.8, worst adjacent normal-vision ΔE 19.7, every slot inside the dark lightness band and over 3:1 contrast, and the first three clearing the all-pairs gate that scatter needs. Colours you add or edit are checked by the same code — [assets/validate_palette.js](assets/validate_palette.js) is that validator, vendored — and the panel says in plain words what a reader would struggle with. Past the sixth slot extra series go grey rather than repeat a hue, since a repeated colour claims two series are one.
 
-**Video.** Paste or drop several images, drag the thumbnails into order, and record a vertical slideshow — 30 seconds by default, split evenly across the slides. **Motion** sets what each slide does: still, push in, pull out, alternating (the default — a long reel stops feeling like one repeated move), or a slow upward drift. **Transition** sets the handover: crossfade, hard cut, through black, or push up. An **opening title** (2s: logo, wordmark, gold rule, date) and an **end card** (2.4s: logo, `READ MORE AT`, the handle, `LINK IN BIO`) are on by default and can be switched off.
+**Video.** Paste or drop images **and MP4/MOV clips**, drag the thumbnails into order, type a subtitle under any of them, and record a vertical slideshow — 30 seconds by default, split evenly across the slides. **Motion** sets what each slide does: still, push in, pull out, alternating (the default — a long reel stops feeling like one repeated move), or a slow upward drift. **Transition** sets the handover: crossfade, hard cut, through black, or push up. An **opening title** (2s: logo, wordmark, gold rule, date) and an **end card** (2.4s: logo, `READ MORE AT`, the handle, `LINK IN BIO`) are on by default and can be switched off.
 
 Every slide runs the full width of the frame — never pillarboxed. A 9:16 still fills the height too; anything shorter keeps its full width and leaves blurred bands above and below, sitting a little high in the frame so the app's own caption covers blur rather than picture.
+
+A **clip** takes the same slot as any still and plays at its own speed inside it, looping if it is shorter than the slot and cut off if it is longer — so set the total seconds against the footage you have. Its sound is recorded too, unless **Keep clip audio** is off; stills are silent either way. Only formats the browser itself can play are accepted, which in practice means MP4 (H.264) and MOV.
+
+**Subtitles** are typed under each thumbnail and burned into the frame in Montserrat bold, each line on its own backing pill — over footage nobody controls, a scrim is a guess and a pill is a guarantee. They hold one fixed position for the whole cut rather than moving with the picture, which also means a subtitle on a full card slide lands over the card's own footer: put subtitles on photos and clips.
 
 Recording is wall-clock bound — a 30s video takes 30s, because MediaRecorder encodes in real time — so leave the tab in front while it runs. **Cancel** aborts and writes nothing. Output is MP4 (H.264) in Chrome, Edge and Safari; Firefox can only produce WebM, which TikTok accepts and Instagram may not.
 
@@ -202,15 +206,19 @@ Both check pages take `?case=stress`.
   "source": "Source: Commerce Department" }
 ```
 
-`emphasis` 填要强调的系列序号，其余画成灰色；散点图用 `points` 代替 categories/series；数字卡用 `value` / `delta` / `label`。`xLabel` 和 `yLabel` 都是横排的，不用歪头看。
+`emphasis` 填要强调的系列序号，其余画成灰色；散点图用 `points` 代替 categories/series；数字卡用 `value` / `delta` / `label` / `body`——`body` 是解析这个数字的两三句话，不写的话画面大半是空的，卡片下方也会提示你补上。`xLabel` 和 `yLabel` 都是横排的，不用歪头看。
 
 因为输出是静态图，没有鼠标悬停可以兜底——每个数都必须印在图上。所以数值标签默认开启，折线只标最后一个点，散点只标极值点。
 
 **配色**是六个固定顺序的颜色，第一个是品牌金。这个顺序是穷举排列后用 Anthropic 数据可视化规范里的验证器在深色底上逐项检查选出来的：最差相邻对色盲 ΔE 14.8、常视 ΔE 19.7，六个颜色全部落在深色明度区间内且对比度超过 3:1，前三个还通过了散点图需要的全对检查。你自己加或改的颜色会用同一份代码检查——[assets/validate_palette.js](assets/validate_palette.js) 就是那个验证器（已随项目一起收录）——面板会用大白话告诉你读者会在哪里读不出来。超过第六个之后，多出来的系列会变灰而不是重复用色，因为重复的颜色等于在说这两个系列是同一个。
 
-**视频**：粘贴或拖入多张图，拖动缩略图排序，导出竖版幻灯片视频。默认 30 秒平均分给每张。「画面动效」选每张图自己怎么动：静止、缓慢推近、缓慢拉远、推近/拉远交替（默认，多张连播不会显得一直在重复同一个动作）、缓慢上移。「转场」选两张之间怎么切：交叉淡入、硬切、黑场过渡、向上推移。片头（2 秒：logo + 刊名 + 金线 + 日期）和片尾（2.4 秒：logo + READ MORE AT + 账号 + LINK IN BIO）默认开启，可以关掉。
+**视频**：粘贴或拖入图片**以及 MP4 / MOV 视频片段**，拖动缩略图排序，可以在每张下面写字幕，导出竖版幻灯片视频。默认 30 秒平均分给每张。「画面动效」选每张图自己怎么动：静止、缓慢推近、缓慢拉远、推近/拉远交替（默认，多张连播不会显得一直在重复同一个动作）、缓慢上移。「转场」选两张之间怎么切：交叉淡入、硬切、黑场过渡、向上推移。片头（2 秒：logo + 刊名 + 金线 + 日期）和片尾（2.4 秒：logo + READ MORE AT + 账号 + LINK IN BIO）默认开启，可以关掉。
 
-每张图都横向满屏，两侧不留黑边。9:16 的图连高度一起铺满；比例更矮的保持满宽，只在上下留模糊填充，并且整体略微上移，让平台的文案盖住模糊带而不是画面本身。
+每张素材都横向满屏，两侧不留黑边。9:16 的图连高度一起铺满；比例更矮的保持满宽，只在上下留模糊填充，并且整体略微上移，让平台的文案盖住模糊带而不是画面本身。
+
+**视频片段**和静态图分到同样长的时段，在这个时段里按自己的速度播放：短了自动循环，长了会被截断——所以总秒数要按手里的素材来设。片段的原声也会录进去，除非关掉「保留片段原声」；静态图本来就没有声音。只接受浏览器自己能播放的格式，实际上就是 MP4（H.264）和 MOV。
+
+**字幕**在每张缩略图下面直接输入，用 Montserrat 粗体烧录进画面，每行带一块深色底——素材千变万化，渐变遮罩只是猜测，底块才是保证。字幕位置全片固定，不会跟着画面跳动；也因此，给整张卡片配字幕会压到卡片自己的页脚，字幕更适合配照片和视频片段。
 
 录制按真实时间走——30 秒视频就要录 30 秒，因为 MediaRecorder 是实时编码——录制期间请保持本页在最前。中途点「取消」会直接中断，不会产出任何文件。Chrome / Edge / Safari 输出 MP4（H.264）；Firefox 只能输出 WebM，TikTok 收，Instagram 可能不收。
 

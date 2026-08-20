@@ -519,26 +519,82 @@ function drawDonut(ctx, d, area, colorOf, pal) {
 }
 
 /* ---- stat tile -------------------------------------------------------- */
-/* The right form when the data is one number — a one-bar bar chart is not. */
-function drawStat(ctx, d, area) {
+/* The right form when the data is one number — a one-bar bar chart is not.
+   A number alone leaves the frame empty and the reader with nothing to do, so
+   the tile carries the reading under it: the figure, what moved, and then the
+   two or three sentences that say why it matters. */
+function drawStat(ctx, d, area, colorOf, pal, warnings) {
   const value = String(d.value ?? (d.series[0]?.values?.[0] ?? ''));
   const cx = area.x;
-  let y = area.y + area.h * 0.34;
 
-  ctx.font = font(700, 190, 'Montserrat');   // proportional figures, never tabular
+  // Body copy is a string, an array of paragraphs, or the bullets field —
+  // whichever the model happened to fill in.
+  const body = Array.isArray(d.body) ? d.body.filter(Boolean).map(String)
+    : d.body ? [String(d.body)]
+      : (Array.isArray(d.bullets) && d.bullets.length ? d.bullets.map(String) : []);
+  const bulleted = !d.body && body.length > 1;
+
+  // Lay the whole tile out first, then place it, so the block sits optically
+  // in the frame instead of starting at a fixed height with a hole beneath it.
+  const VALUE = Math.min(190, area.h * 0.22);
+  const DELTA = 40, LABEL = 38, BODY = 32, BODY_LH = 1.5;
+  const labelLines = d.label ? measureLines(ctx, d.label, area.w, font(400, LABEL, 'Montserrat')) : [];
+  const indent = bulleted ? 34 : 0;
+  const bodyLines = body.map((para) =>
+    measureLines(ctx, para, area.w - indent, font(300, BODY, 'Montserrat')));
+
+  let h = VALUE;
+  if (d.delta) h += 62;
+  if (labelLines.length) h += 34 + labelLines.length * 50;
+  if (bodyLines.length) {
+    h += 64;                                   // the rule and its air
+    bodyLines.forEach((lines, i) => { h += lines.length * BODY * BODY_LH + (i ? 22 : 0); });
+  }
+
+  let y = area.y + Math.max(0, (area.h - h) * 0.34) + VALUE * 0.78;
+
+  ctx.font = font(700, VALUE, 'Montserrat');   // proportional figures, never tabular
   ctx.fillStyle = INK.title;
   ctx.fillText(value, cx, y);
+  y += 62;
 
   if (d.delta) {
-    y += 66;
-    ctx.font = font(600, 40, 'Montserrat');
+    ctx.font = font(600, DELTA, 'Montserrat');
     ctx.fillStyle = INK.secondary;
     ctx.fillText(String(d.delta), cx, y);
+    y += 34;
   }
-  if (d.label) {
-    y += 74;
-    ctx.font = font(400, 38, 'Montserrat');
+  if (labelLines.length) {
+    ctx.font = font(400, LABEL, 'Montserrat');
     ctx.fillStyle = INK.primary;
-    for (const line of wrapText(ctx, d.label, area.w)) { ctx.fillText(line, cx, y); y += 50; }
+    for (const line of labelLines) { y += 50; ctx.fillText(line, cx, y); }
   }
+
+  if (bodyLines.length) {
+    y += 64;
+    ctx.fillStyle = T_GOLD;
+    // Far enough below the label to read as a rule and not as an underline.
+    ctx.fillRect(cx, y - 34, 96, 5);
+    ctx.font = font(300, BODY, 'Montserrat');
+    bodyLines.forEach((lines, i) => {
+      if (i) y += 22;
+      if (bulleted) {
+        ctx.fillStyle = T_GOLD;
+        ctx.beginPath();
+        ctx.arc(cx + 8, y + BODY * 0.42, 7, 0, Math.PI * 2);
+        ctx.fill();
+      }
+      ctx.fillStyle = INK.secondary;
+      for (const line of lines) { ctx.fillText(line, cx + indent, y + BODY); y += BODY * BODY_LH; }
+    });
+  }
+
+  if (!body.length) warnings.push({ code: 'statBody' });
+}
+
+const T_GOLD = '#EFC050';
+
+function measureLines(ctx, text, width, fontSpec) {
+  ctx.font = fontSpec;
+  return wrapText(ctx, text, width);
 }

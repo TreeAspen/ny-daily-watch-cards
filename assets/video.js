@@ -1,7 +1,8 @@
 /* NY Daily Watch — slideshow encoder for Reels/TikTok.
-   Composites stills onto a 1080x1920 canvas and records it through
+   Composites stills and clips onto a 1080x1920 canvas and records it through
    MediaRecorder. Recording is wall-clock bound: a 30s video takes 30s to
-   make. That is the price of the only encoder every browser ships. */
+   make. That is the price of the only encoder every browser ships — and it is
+   also what lets a video clip play at its own speed inside the cut. */
 
 import { SAFE } from './render.js';
 
@@ -26,6 +27,27 @@ export function pickMime() {
 export const extFor = (mime) => (mime && mime.startsWith('video/mp4') ? 'mp4' : 'webm');
 
 const ease = (t) => (t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2);
+const clampN = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
+
+/* ---- the slide model --------------------------------------------------- */
+/* A slide is { el, kind, sub } — el is an <img> or a <video>. Callers may also
+   pass a bare element, which is wrapped here, so older call sites (and the
+   guide's illustrations) keep working. */
+export function asSlide(x) {
+  if (!x) return null;
+  if (x.el) return x;
+  return { el: x, kind: isVideo(x) ? 'video' : 'image', sub: '' };
+}
+
+export const isVideo = (el) =>
+  typeof HTMLVideoElement !== 'undefined' && el instanceof HTMLVideoElement;
+
+/* A <video> reports its frame size on videoWidth/videoHeight; width/height are
+   the layout attributes and are usually zero. */
+const dims = (el) => ({
+  w: el.videoWidth || el.naturalWidth || el.width,
+  h: el.videoHeight || el.naturalHeight || el.height,
+});
 
 /* ---- motion and transitions ------------------------------------------ */
 export const MOTIONS = ['none', 'in', 'out', 'alternate', 'drift'];
@@ -54,37 +76,42 @@ function motionAt(kind, i, k) {
    card above all) keeps its full width and leaves blurred bands above and
    below. Those bands are not centred on the frame but on the safe strip, which
    lifts the picture clear of the app's own caption without narrowing it. */
-function drawSlide(ctx, img, m, alpha) {
+function drawSlide(ctx, slide, m, alpha) {
+  const el = slide.el;
+  const { w: sw, h: sh } = dims(el);
+  if (!sw || !sh) return;            // a clip whose metadata has not landed yet
+
   ctx.save();
   ctx.globalAlpha = alpha;
   const { zoom, dy } = m;
-  const fullH = (img.height / img.width) * V.W;
+  const fullH = (sh / sw) * V.W;
 
   if (fullH >= V.H - 2) {
     ctx.save();
     ctx.translate(0, dy);
-    cover(ctx, img, 0, 0, V.W, V.H, zoom);
+    cover(ctx, el, 0, 0, V.W, V.H, zoom);
     ctx.restore();
   } else {
     ctx.save();
     ctx.filter = 'blur(48px) brightness(0.42)';
-    cover(ctx, img, -60, -60, V.W + 120, V.H + 120, 1.06);
+    cover(ctx, el, -60, -60, V.W + 120, V.H + 120, 1.06);
     ctx.restore();
 
     const w = V.W * zoom, h = fullH * zoom;
     const safeH = V.H - SAFE.top - SAFE.bottom;
     const y = Math.max(0, Math.min(V.H - h, SAFE.top + (safeH - h) / 2)) + dy;
-    ctx.drawImage(img, (V.W - w) / 2, y, w, h);
+    ctx.drawImage(el, (V.W - w) / 2, y, w, h);
   }
   ctx.restore();
 }
 
-function cover(ctx, img, x, y, w, h, zoom = 1) {
-  const scale = Math.max(w / img.width, h / img.height) * zoom;
-  const dw = img.width * scale, dh = img.height * scale;
+function cover(ctx, el, x, y, w, h, zoom = 1) {
+  const { w: sw, h: sh } = dims(el);
+  const scale = Math.max(w / sw, h / sh) * zoom;
+  const dw = sw * scale, dh = sh * scale;
   ctx.save();
   ctx.beginPath(); ctx.rect(x, y, w, h); ctx.clip();
-  ctx.drawImage(img, x + (w - dw) / 2, y + (h - dh) / 2, dw, dh);
+  ctx.drawImage(el, x + (w - dw) / 2, y + (h - dh) / 2, dw, dh);
   ctx.restore();
 }
 
@@ -206,10 +233,162 @@ export function drawOutro(ctx, p, brand = {}, alpha = 1) {
   ctx.restore();
 }
 
+/* ---- subtitles --------------------------------------------------------- */
+/* Burned in, because a Reel is watched with the sound off and the platform's
+   own caption is somewhere else entirely. Each line gets its own backing pill:
+   over footage nobody controls, a scrim is a guess and a pill is a guarantee. */
+const SUB = { size: 56, min: 34, lh: 1.26, maxLines: 3, side: 84, lift: 30, pad: 22, radius: 12 };
+
+function wrapWords(ctx, text, maxWidth) {
+  const out = [];
+  for (const para of String(text).split('\n')) {
+    let line = '';
+    for (const word of para.split(/\s+/).filter(Boolean)) {
+      const next = line ? line + ' ' + word : word;
+      if (ctx.measureText(next).width <= maxWidth || !line) line = next;
+      else { out.push(line); line = word; }
+    }
+    if (line) out.push(line);
+  }
+  return out;
+}
+
+function roundRect(ctx, x, y, w, h, r) {
+  ctx.beginPath();
+  ctx.moveTo(x + r, y);
+  ctx.arcTo(x + w, y, x + w, y + h, r);
+  ctx.arcTo(x + w, y + h, x, y + h, r);
+  ctx.arcTo(x, y + h, x, y, r);
+  ctx.arcTo(x, y, x + w, y, r);
+  ctx.closePath();
+}
+
+export function drawSubtitle(ctx, text, alpha = 1) {
+  const t = String(text || '').trim();
+  if (!t || alpha <= 0) return;
+
+  const colW = V.W - 2 * SUB.side;
+  const fit = (size) => {
+    ctx.font = `700 ${size}px "Montserrat"`;
+    return wrapWords(ctx, t, colW);
+  };
+  let size = SUB.size;
+  while (size > SUB.min && fit(size).length > SUB.maxLines) size -= 2;
+  const lines = fit(size);
+  const lineH = size * SUB.lh;
+
+  // The block sits on the floor of the safe box, above whatever the app draws.
+  let y = V.H - SAFE.bottom - SUB.lift - lines.length * lineH;
+
+  ctx.save();
+  ctx.globalAlpha = alpha;
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'alphabetic';
+  for (const line of lines) {
+    ctx.font = `700 ${size}px "Montserrat"`;
+    const w = ctx.measureText(line).width;
+    ctx.fillStyle = 'rgba(0,0,0,0.62)';
+    roundRect(ctx, (V.W - w) / 2 - SUB.pad, y + lineH * 0.08,
+      w + SUB.pad * 2, lineH * 0.92, SUB.radius);
+    ctx.fill();
+    ctx.fillStyle = WHITE;
+    ctx.fillText(line, V.W / 2, y + lineH * 0.76);
+    y += lineH;
+  }
+  ctx.restore();
+  ctx.textAlign = 'left';
+}
+
+/* ---- clip playback ----------------------------------------------------- */
+/* drawFrame only ever paints; who is playing is decided here, so the recorder
+   (real time, let it run) and the scrub preview (seek to the exact frame) can
+   ask for the same moment in two different ways. */
+export function syncClips(slides, t, opts, { live = false, gains = null } = {}) {
+  const { total, intro = 0, outro = 0 } = opts;
+  const fade = opts.transition === 'cut' ? 0 : (opts.fade ?? 0.6);
+  const body = Math.max(0.2, total - intro - outro);
+  const per = body / (slides.length || 1);
+  const st = t - intro;
+  const active = st < 0 ? -1 : Math.min(slides.length - 1, Math.floor(st / per));
+
+  slides.forEach((slide, i) => {
+    if (slide.kind !== 'video') return;
+    const el = slide.el;
+    const local = st - i * per;
+    // A clip is already on screen while the previous slide fades out of it.
+    const onScreen = i === active ||
+      (i === active + 1 && fade > 0 && st > 0 && st - active * per > per - fade);
+
+    if (gains) gains.get(slide) && (gains.get(slide).gain.value = i === active ? 1 : 0);
+
+    if (live) {
+      if (onScreen && el.paused) el.play().catch(() => {});
+      else if (!onScreen && !el.paused) el.pause();
+      // Restart at the top of its own slot rather than carrying on from a
+      // previous pass through the timeline.
+      if (i === active && local >= 0 && local < 0.14 && el.currentTime > 0.4) el.currentTime = 0;
+    } else {
+      if (!el.paused) el.pause();
+      const d = el.duration || 1;
+      const at = local <= 0 ? 0 : ((local % d) + d) % d;
+      if (Math.abs(el.currentTime - at) > 0.05) el.currentTime = clampN(at, 0, Math.max(0, d - 0.05));
+    }
+  });
+}
+
+export function resetClips(slides) {
+  for (const slide of slides) {
+    if (slide.kind !== 'video') continue;
+    slide.el.pause();
+    try { slide.el.currentTime = 0; } catch (_) { /* not seekable yet */ }
+  }
+}
+
+/* ---- clip audio -------------------------------------------------------- */
+/* One AudioContext for the page, and one source node per element, both cached:
+   a media element can only be tapped once, and only by one context, so a second
+   recording has to reuse the first one's graph. */
+let AUDIO_CTX = null;
+
+function buildAudio(slides) {
+  const clips = slides.filter((s) => s.kind === 'video');
+  if (!clips.length) return null;
+  const AC = window.AudioContext || window.webkitAudioContext;
+  if (!AC) return null;
+  try {
+    AUDIO_CTX = AUDIO_CTX || new AC();
+    if (AUDIO_CTX.state === 'suspended') AUDIO_CTX.resume();
+    const dest = AUDIO_CTX.createMediaStreamDestination();
+    const gains = new Map();
+    for (const slide of clips) {
+      const el = slide.el;
+      el.muted = false;
+      if (!el.__ndwTap) el.__ndwTap = AUDIO_CTX.createMediaElementSource(el);
+      const g = AUDIO_CTX.createGain();
+      g.gain.value = 0;
+      el.__ndwTap.connect(g);
+      g.connect(dest);
+      gains.set(slide, g);
+    }
+    return { dest, gains };
+  } catch (_) {
+    // No audio is a worse video, but a failed recording is worse still.
+    return null;
+  }
+}
+
+function teardownAudio(audio, slides) {
+  if (!audio) return;
+  for (const g of audio.gains.values()) { try { g.disconnect(); } catch (_) {} }
+  for (const slide of slides) if (slide.kind === 'video') slide.el.muted = true;
+}
+
 /* Paints the frame at time `t` seconds. Exported so the page can scrub a
    preview through the same code the recorder runs. */
-export function drawFrame(ctx, slides, t, opts) {
+export function drawFrame(ctx, rawSlides, t, opts) {
+  const slides = rawSlides.length && rawSlides[0].el ? rawSlides : rawSlides.map(asSlide);
   const { total, intro = 0, outro = 0, brand } = opts;
+  const subs = opts.subtitles !== false;
   const motion = opts.motion ?? (opts.zoom === false ? 'none' : 'in');
   const transition = opts.transition || 'crossfade';
   // A cut is a crossfade with no time in it, so the boundaries fall out free.
@@ -235,7 +414,10 @@ export function drawFrame(ctx, slides, t, opts) {
   if (t < intro) {
     drawIntro(ctx, clamp01(t / intro), brand);
     const rem = intro - t;
-    if (rem < fade) drawSlide(ctx, slides[0], m(0, 0), 1 - rem / fade);
+    if (rem < fade) {
+      drawSlide(ctx, slides[0], m(0, 0), 1 - rem / fade);
+      if (subs) drawSubtitle(ctx, slides[0].sub, 1 - rem / fade);
+    }
     return;
   }
 
@@ -254,20 +436,31 @@ export function drawFrame(ctx, slides, t, opts) {
       ctx.globalAlpha = u * 2;
       ctx.fillStyle = INK; ctx.fillRect(0, 0, V.W, V.H);
       ctx.restore();
+      if (subs) drawSubtitle(ctx, slides[i].sub, 1 - u * 2);
     } else {
       drawSlide(ctx, next, m(i + 1, 0), (u - 0.5) * 2);
+      if (subs) drawSubtitle(ctx, next.sub, (u - 0.5) * 2);
     }
   } else if (turning && transition === 'push') {
     const e = ease(u);
     ctx.save(); ctx.translate(0, -V.H * e);
     drawSlide(ctx, slides[i], m(i, local), 1);
+    if (subs) drawSubtitle(ctx, slides[i].sub, 1);
     ctx.restore();
     ctx.save(); ctx.translate(0, V.H * (1 - e));
     drawSlide(ctx, next, m(i + 1, 0), 1);
+    if (subs) drawSubtitle(ctx, next.sub, 1);
     ctx.restore();
   } else {
     drawSlide(ctx, slides[i], m(i, local), 1);
     if (turning) drawSlide(ctx, next, m(i + 1, 0), u);
+    if (subs) {
+      // The subtitle crossfades with its own slide, unless the words do not
+      // change — then it simply stays put rather than blinking.
+      const same = turning && next.sub === slides[i].sub;
+      drawSubtitle(ctx, slides[i].sub, same ? 1 : (turning ? 1 - u : 1));
+      if (turning && !same) drawSubtitle(ctx, next.sub, u);
+    }
   }
 
   if (outro) {
@@ -276,14 +469,20 @@ export function drawFrame(ctx, slides, t, opts) {
   }
 }
 
-export async function recordVideo(canvas, slides, opts, onProgress, shouldStop) {
+export async function recordVideo(canvas, rawSlides, opts, onProgress, shouldStop) {
   const mime = pickMime();
   if (!mime) throw new Error('no-recorder');
+  const slides = rawSlides.map(asSlide);
   const ctx = canvas.getContext('2d');
   canvas.width = V.W; canvas.height = V.H;
 
+  resetClips(slides);
+  const audio = opts.audio === false ? null : buildAudio(slides);
   const stream = canvas.captureStream(V.fps);
-  const rec = new MediaRecorder(stream, { mimeType: mime, videoBitsPerSecond: 12e6 });
+  const tracks = [...stream.getVideoTracks(),
+    ...(audio ? audio.dest.stream.getAudioTracks() : [])];
+  const rec = new MediaRecorder(new MediaStream(tracks),
+    { mimeType: mime, videoBitsPerSecond: 12e6, audioBitsPerSecond: 128e3 });
   const chunks = [];
   rec.ondataavailable = (e) => { if (e.data.size) chunks.push(e.data); };
   const done = new Promise((res) => { rec.onstop = () => res(new Blob(chunks, { type: mime })); });
@@ -298,6 +497,7 @@ export async function recordVideo(canvas, slides, opts, onProgress, shouldStop) 
       if (shouldStop?.()) { cancelled = true; res(); return; }
       const t = (performance.now() - started) / 1000;
       if (t >= opts.total) { res(); return; }
+      syncClips(slides, t, opts, { live: true, gains: audio ? audio.gains : null });
       drawFrame(ctx, slides, t, opts);
       onProgress?.(t / opts.total);
       requestAnimationFrame(tick);
@@ -307,7 +507,9 @@ export async function recordVideo(canvas, slides, opts, onProgress, shouldStop) 
 
   if (cancelled) {
     rec.stop();
-    stream.getTracks().forEach((tr) => tr.stop());
+    tracks.forEach((tr) => tr.stop());
+    resetClips(slides);
+    teardownAudio(audio, slides);
     await done;                      // let the recorder release before returning
     return { cancelled: true };
   }
@@ -316,7 +518,9 @@ export async function recordVideo(canvas, slides, opts, onProgress, shouldStop) 
   drawFrame(ctx, slides, Math.max(0, opts.total - 0.01), opts);
   await new Promise((r) => setTimeout(r, 260));
   rec.stop();
-  stream.getTracks().forEach((tr) => tr.stop());
+  tracks.forEach((tr) => tr.stop());
+  resetClips(slides);
+  teardownAudio(audio, slides);
   onProgress?.(1);
-  return { blob: await done, mime, ext: extFor(mime), cancelled: false };
+  return { blob: await done, mime, ext: extFor(mime), cancelled: false, audio: !!audio };
 }
