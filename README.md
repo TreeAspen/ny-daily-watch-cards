@@ -106,6 +106,8 @@ Every slide runs the full width of the frame — never pillarboxed. A 9:16 still
 
 A **clip** takes the same slot as any still and plays at its own speed inside it, looping if it is shorter than the slot and cut off if it is longer — so set the total seconds against the footage you have. Its sound is recorded too, unless **Keep clip audio** is off; stills are silent either way. Only formats the browser itself can play are accepted, which in practice means MP4 (H.264) and MOV.
 
+Nothing is uploaded — the file never leaves the page — but opening and decoding a long clip is a visible wait, so a bar under the drop zone reports it. It advances on the steps the file actually goes through (opening, metadata, buffered fraction, first frame, thumbnail) across the whole batch, rather than a timer pretending to be progress.
+
 **Subtitles** are typed under each thumbnail and burned into the frame in Montserrat bold, each line on its own backing pill — over footage nobody controls, a scrim is a guess and a pill is a guarantee. They hold one fixed position for the whole cut rather than moving with the picture, which also means a subtitle on a full card slide lands over the card's own footer: put subtitles on photos and clips.
 
 Recording is wall-clock bound — a 30s video takes 30s, because MediaRecorder encodes in real time — so leave the tab in front while it runs. **Cancel** aborts and writes nothing. Output is MP4 (H.264) in Chrome, Edge and Safari; Firefox can only produce WebM, which TikTok accepts and Instagram may not.
@@ -217,6 +219,8 @@ Both check pages take `?case=stress`.
 每张素材都横向满屏，两侧不留黑边。9:16 的图连高度一起铺满；比例更矮的保持满宽，只在上下留模糊填充，并且整体略微上移，让平台的文案盖住模糊带而不是画面本身。
 
 **视频片段**和静态图分到同样长的时段，在这个时段里按自己的速度播放：短了自动循环，长了会被截断——所以总秒数要按手里的素材来设。片段的原声也会录进去，除非关掉「保留片段原声」；静态图本来就没有声音。只接受浏览器自己能播放的格式，实际上就是 MP4（H.264）和 MOV。
+
+文件不会上传到任何地方——始终留在页面里——但打开和解码长片段是一段看得见的等待，所以投放区下面有一条进度条。它按文件真实经过的步骤推进（打开、读元数据、已缓冲比例、第一帧、缩略图），整批文件共用一条进度，而不是拿计时器假装成进度。
 
 **字幕**在每张缩略图下面直接输入，用 Montserrat 粗体烧录进画面，每行带一块深色底——素材千变万化，渐变遮罩只是猜测，底块才是保证。字幕位置全片固定，不会跟着画面跳动；也因此，给整张卡片配字幕会压到卡片自己的页脚，字幕更适合配照片和视频片段。
 

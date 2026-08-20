@@ -312,6 +312,8 @@
           <button class="ghost" id="v-clear" data-i18n="btnClearAll"></button></span></div>
         <div class="drop" id="v-drop" tabindex="0"></div>
         <input type="file" id="v-file" accept="image/*,video/*" multiple hidden>
+        <progress id="v-load" value="0" max="1" hidden></progress>
+        <div class="hint" id="v-load-label" hidden></div>
         <div class="strip" id="v-strip"></div>
       </div>
 
@@ -476,6 +478,13 @@ const STR = {
     webmWarn: 'This browser can only record WebM. TikTok accepts it; Instagram may not — if the upload fails, convert to MP4.',
     videoMeta: (mime, n) => `${V.W}×${V.H} · ${mime.split(';')[0]} · ${n} slides`,
     clipFail: 'That clip could not be read — try an MP4 or MOV',
+    adding: (i, n, name) => `Adding ${i} of ${n} · ${name}`,
+    stage_open: 'opening the file',
+    stage_meta: 'reading its size and duration',
+    stage_buffer: 'buffering',
+    stage_frame: 'decoding the first frame',
+    stage_thumb: 'making a thumbnail',
+    stage_done: 'ready',
 
     waiting: 'Waiting for JSON…',
     ready: (slug) => `Ready · ${slug}`,
@@ -587,6 +596,13 @@ const STR = {
     webmWarn: '当前浏览器只能录 WebM。TikTok 可以传，Instagram 可能不收——如果上传失败，转成 MP4 再传。',
     videoMeta: (mime, n) => `${V.W}×${V.H} · ${mime.split(';')[0]} · ${n} 张`,
     clipFail: '这个片段读不了，请换成 MP4 或 MOV',
+    adding: (i, n, name) => `正在加入第 ${i} / ${n} 个 · ${name}`,
+    stage_open: '打开文件',
+    stage_meta: '读取尺寸和时长',
+    stage_buffer: '缓冲中',
+    stage_frame: '解码第一帧',
+    stage_thumb: '生成缩略图',
+    stage_done: '完成',
 
     waiting: '等待 JSON…',
     ready: (slug) => `已就绪 · ${slug}`,
@@ -1117,17 +1133,31 @@ function updateVideoMeta() {
 
 /* A clip is loaded far enough to have a frame, then one frame is pulled off it
    for the strip — a <video> cannot be used as a thumbnail directly. */
-function loadClip(file) {
+/* Nothing is uploaded anywhere — the file stays in the page — but a long clip
+   still takes a visible moment to open, decode and thumbnail, so the steps it
+   really goes through are reported rather than a timer pretending to be one. */
+function loadClip(file, onStage) {
   return new Promise((resolve, reject) => {
     const el = document.createElement('video');
     el.preload = 'auto';
     el.muted = true;              // unmuted only while recording, through the audio graph
     el.playsInline = true;
     el.loop = true;               // a short clip fills its slot instead of freezing
-    el.src = URL.createObjectURL(file);
-    el.onloadeddata = () => resolve(el);
+    onStage?.(0.05, 'stage_open');
+    el.onloadedmetadata = () => onStage?.(0.3, 'stage_meta');
+    el.onprogress = () => {
+      // Real buffered fraction when the browser reports one; it never invents.
+      try {
+        const b = el.buffered;
+        if (b.length && el.duration) {
+          onStage?.(0.3 + 0.35 * Math.min(1, b.end(b.length - 1) / el.duration), 'stage_buffer');
+        }
+      } catch (_) { /* buffered can throw before metadata */ }
+    };
+    el.onloadeddata = () => { onStage?.(0.7, 'stage_frame'); resolve(el); };
     el.onerror = () => reject(new Error('clip'));
-    setTimeout(() => reject(new Error('clip')), 20000);
+    el.src = URL.createObjectURL(file);
+    setTimeout(() => reject(new Error('clip')), 60000);
   });
 }
 
@@ -1147,21 +1177,45 @@ function clipThumb(el) {
   });
 }
 
+function showProgress(frac, label) {
+  $('v-load').hidden = $('v-load-label').hidden = false;
+  $('v-load').value = Math.max(0, Math.min(1, frac));
+  $('v-load-label').textContent = label;
+}
+function hideProgress() {
+  $('v-load').hidden = $('v-load-label').hidden = true;
+}
+
 async function addSlides(files) {
-  for (const f of files) {
+  const list = [...files].filter((f) =>
+    f.type.startsWith('image/') || f.type.startsWith('video/'));
+  if (!list.length) return;
+
+  for (let i = 0; i < list.length; i++) {
+    const f = list[i];
+    // The bar spans the whole batch; each file owns one slice of it.
+    const at = (frac, stage) =>
+      showProgress((i + frac) / list.length,
+        t('adding', i + 1, list.length, f.name) + ' — ' + t(stage));
+    at(0, 'stage_open');
     try {
       if (f.type.startsWith('video/')) {
-        const el = await loadClip(f);
-        video.slides.push({ el, kind: 'video', sub: '', thumb: await clipThumb(el),
-          dur: el.duration || 0 });
-      } else if (f.type.startsWith('image/')) {
+        const el = await loadClip(f, at);
+        at(0.8, 'stage_thumb');
+        const thumb = await clipThumb(el);
+        video.slides.push({ el, kind: 'video', sub: '', thumb, dur: el.duration || 0 });
+      } else {
         const el = await loadImage(URL.createObjectURL(f));
+        at(0.9, 'stage_thumb');
         video.slides.push({ el, kind: 'image', sub: '', thumb: el.src, dur: 0 });
       }
+      at(1, 'stage_done');
+      renderStrip();                     // each one appears as it lands
     } catch (_) {
       status($('v-status'), f.type.startsWith('video/') ? 'clipFail' : 'imgFail', 'err');
     }
   }
+  hideProgress();
   renderStrip();
   paintVideoAt(+$('v-scrub').value / 1000);
 }
