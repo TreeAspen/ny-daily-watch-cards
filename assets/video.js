@@ -299,6 +299,42 @@ export function drawSubtitle(ctx, text, alpha = 1) {
   ctx.textAlign = 'left';
 }
 
+/* ---- cues -------------------------------------------------------------- */
+/* A slide's subtitle is one cue per line. The slot is shared out by length,
+   because a long line needs longer to read than a short one, with a floor so a
+   short cue never flashes past. Cues hard-cut into each other: two pill-backed
+   lines crossfading would just stack two dark boxes. */
+export const MIN_CUE = 1.2;
+
+export const cuesOf = (slide) =>
+  String((slide && slide.sub) || '').split('\n').map((l) => l.trim()).filter(Boolean);
+
+export function cueSpans(cues, per) {
+  if (cues.length < 2) return cues.map(() => per);
+  // Every cue is given the floor first; only what is left over is shared out by
+  // length. Weighting first and clamping after would put a cue back under it.
+  const floor = Math.min(MIN_CUE, per / cues.length);
+  const spare = per - floor * cues.length;
+  if (spare <= 0) return cues.map(() => per / cues.length);
+  const lens = cues.map((c) => Math.max(1, c.length));
+  const sum = lens.reduce((a, b) => a + b, 0);
+  return lens.map((l) => floor + (spare * l) / sum);
+}
+
+/* The cue showing `local` seconds into a slide whose slot is `per` long. */
+export function cueAt(slide, local, per) {
+  const cues = cuesOf(slide);
+  if (!cues.length) return '';
+  if (cues.length === 1) return cues[0];
+  const spans = cueSpans(cues, per);
+  let t = 0;
+  for (let i = 0; i < cues.length; i++) {
+    t += spans[i];
+    if (local < t) return cues[i];
+  }
+  return cues[cues.length - 1];
+}
+
 /* ---- clip playback ----------------------------------------------------- */
 /* drawFrame only ever paints; who is playing is decided here, so the recorder
    (real time, let it run) and the scrub preview (seek to the exact frame) can
@@ -416,7 +452,7 @@ export function drawFrame(ctx, rawSlides, t, opts) {
     const rem = intro - t;
     if (rem < fade) {
       drawSlide(ctx, slides[0], m(0, 0), 1 - rem / fade);
-      if (subs) drawSubtitle(ctx, slides[0].sub, 1 - rem / fade);
+      if (subs) drawSubtitle(ctx, cueAt(slides[0], 0, body / slides.length), 1 - rem / fade);
     }
     return;
   }
@@ -436,30 +472,32 @@ export function drawFrame(ctx, rawSlides, t, opts) {
       ctx.globalAlpha = u * 2;
       ctx.fillStyle = INK; ctx.fillRect(0, 0, V.W, V.H);
       ctx.restore();
-      if (subs) drawSubtitle(ctx, slides[i].sub, 1 - u * 2);
+      if (subs) drawSubtitle(ctx, cueAt(slides[i], local, per), 1 - u * 2);
     } else {
       drawSlide(ctx, next, m(i + 1, 0), (u - 0.5) * 2);
-      if (subs) drawSubtitle(ctx, next.sub, (u - 0.5) * 2);
+      if (subs) drawSubtitle(ctx, cueAt(next, 0, per), (u - 0.5) * 2);
     }
   } else if (turning && transition === 'push') {
     const e = ease(u);
     ctx.save(); ctx.translate(0, -V.H * e);
     drawSlide(ctx, slides[i], m(i, local), 1);
-    if (subs) drawSubtitle(ctx, slides[i].sub, 1);
+    if (subs) drawSubtitle(ctx, cueAt(slides[i], local, per), 1);
     ctx.restore();
     ctx.save(); ctx.translate(0, V.H * (1 - e));
     drawSlide(ctx, next, m(i + 1, 0), 1);
-    if (subs) drawSubtitle(ctx, next.sub, 1);
+    if (subs) drawSubtitle(ctx, cueAt(next, 0, per), 1);
     ctx.restore();
   } else {
     drawSlide(ctx, slides[i], m(i, local), 1);
     if (turning) drawSlide(ctx, next, m(i + 1, 0), u);
     if (subs) {
+      const here = cueAt(slides[i], local, per);
+      const there = turning ? cueAt(next, 0, per) : '';
       // The subtitle crossfades with its own slide, unless the words do not
       // change — then it simply stays put rather than blinking.
-      const same = turning && next.sub === slides[i].sub;
-      drawSubtitle(ctx, slides[i].sub, same ? 1 : (turning ? 1 - u : 1));
-      if (turning && !same) drawSubtitle(ctx, next.sub, u);
+      const same = turning && there === here;
+      drawSubtitle(ctx, here, same ? 1 : (turning ? 1 - u : 1));
+      if (turning && !same) drawSubtitle(ctx, there, u);
     }
   }
 
