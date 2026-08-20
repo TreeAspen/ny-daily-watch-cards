@@ -112,6 +112,13 @@
   <div class="figs" id="fig-templates"></div>
 </section>
 
+<section id="caption">
+  <h2 data-i18n="s9title"></h2>
+  <p data-i18n="s9body"></p>
+  <ul class="plain" id="caption-rules"></ul>
+  <div class="note" data-i18n="s9note"></div>
+</section>
+
 <section id="charts">
   <h2 data-i18n="s4title"></h2>
   <p data-i18n="s4body"></p>
@@ -169,7 +176,7 @@ const STR = {
     navPost: '← Post builder', navStudio: 'Studio →',
     lede: 'Everything the tool makes, what each control does, and the rules baked into the templates. Every picture below is drawn by the same code the tool runs, so nothing here can drift out of date.',
 
-    toc: ['What it makes', 'The daily run', 'The templates', 'Charts', 'Palette', 'Safe zones', 'Video', 'When something looks wrong'],
+    toc: ['What it makes', 'The daily run', 'The templates', 'The caption', 'Charts', 'Palette', 'Safe zones', 'Video', 'When something looks wrong'],
 
     s1title: 'What it makes',
     s1body: 'Four still formats and one video. The two cards are the standard post; the poster is the full-bleed format; the chart turns numbers from the story into an image. All of them carry the same fonts, the same gold and the same logo.',
@@ -188,6 +195,17 @@ const STR = {
     s3title: 'The templates',
     s3body: 'Card text auto-shrinks to fit; you never set a font size. The number under each card in the tool tells you what size it settled on.',
 
+    s9title: 'The caption',
+    s9body: 'The words of the post come out of the same paste as the cards. The box under them holds whatever the JSON supplied and stays editable — hand edits survive a re-parse, and only a genuinely new caption from the JSON replaces them.',
+    captionRules: [
+      'One opening line, alone as its own paragraph — the only text above the fold.',
+      'Then 4–6 short paragraphs: the mechanism, the numbers, who said what, and the counterargument or what is still unsettled.',
+      'Name the agency or the company, never “officials”. Include dates if the story is time-sensitive.',
+      'End with exactly: Read more at @theNYdailywatch \'s bio.',
+      'Then a final line: Photo: [credit from the article, otherwise NY Daily Watch].',
+      'Under 2,200 characters. No hashtags, no marketing words, never an invented quote.',
+    ],
+    s9note: 'The count turns red past 2,200. The checks under the box say what broke — a missing sign-off, a missing photo credit, a hashtag, a marketing word, a body that is not 4–6 paragraphs. They warn; they never stop you exporting.',
     s4title: 'Charts',
     s4body: 'Pick the type from the job the numbers do, not from what looks good. The picker names the job next to every type, and the hint under it repeats the one rule that type gets wrong most often.',
     s4fields: 'The JSON',
@@ -270,7 +288,7 @@ const STR = {
     navPost: '← 整条帖子', navStudio: '工作台 →',
     lede: '这个工具能做出什么、每个控件是干什么的、以及模板里已经写死的那些规则。下面每一张图都是用工具本身的代码现画的，所以不会和实际效果对不上。',
 
-    toc: ['能做出什么', '日常流程', '几个模板', '数据图表', '配色', '安全区', '视频', '出问题时怎么办'],
+    toc: ['能做出什么', '日常流程', '几个模板', 'Caption 正文', '数据图表', '配色', '安全区', '视频', '出问题时怎么办'],
 
     s1title: '能做出什么',
     s1body: '四种静态版式加一个视频。两张卡片是常规帖子；海报是满屏版式；图表把新闻里的数字变成图。它们用的是同一套字体、同一个金色、同一个 logo。',
@@ -289,6 +307,17 @@ const STR = {
     s3title: '几个模板',
     s3body: '卡片文字会自动缩放适配，你不需要设字号。工具里每张卡下面的数字就是它最终用的字号。',
 
+    s9title: 'Caption 正文',
+    s9body: '帖子的文案和卡片来自同一次粘贴。卡片下面那个框显示 JSON 里的 caption，并且可以直接改——手改的内容不会被重新解析覆盖，只有 JSON 里换了新的 caption 才会替换。',
+    captionRules: [
+      '开场一句单独成段——这是首屏唯一可见的文字。',
+      '然后 4–6 个短段落：机制、数字、谁说了什么、以及反方观点或尚未定论之处。',
+      '点名具体机构或公司，不要写「officials」。时效性新闻要带日期。',
+      '结尾固定这一句：Read more at @theNYdailywatch \'s bio.',
+      '最后一行：Photo: [文章里的图片来源，没有就写 NY Daily Watch]。',
+      '全文 2,200 字符以内。不用 hashtag，不用营销词，绝不编造引语。',
+    ],
+    s9note: '超过 2,200 字符时字数会变红。框下面的检查会指出问题：缺结尾固定句、缺图片来源、含 hashtag、含营销词、正文段数不在 4–6 之间。它只提示，不会阻止你导出。',
     s4title: '数据图表',
     s4body: '按数字要表达什么来选图形，而不是按哪个好看。下拉框里每个图形后面都写了它适合干什么，下面那行提示写的是这种图最容易犯的那个错。',
     s4fields: 'JSON 字段',
@@ -577,11 +606,13 @@ function applyLang() {
   document.querySelectorAll('[data-lang]').forEach((b) =>
     b.setAttribute('aria-pressed', String(b.dataset.lang === lang)));
 
-  const ids = ['what', 'flow', 'templates', 'charts', 'palette', 'safe', 'video', 'fix'];
+  const ids = ['what', 'flow', 'templates', 'caption', 'charts',
+    'palette', 'safe', 'video', 'fix'];
   $('toc').innerHTML = t('toc').map((label, i) => `<a href="#${ids[i]}">${label}</a>`).join('');
 
   $('flow-steps').innerHTML = t('steps')
     .map(([head, body]) => `<li><b>${head}</b> ${body}</li>`).join('');
+  $('caption-rules').innerHTML = t('captionRules').map((r) => `<li>${r}</li>`).join('');
   $('chart-json').textContent = CHART_JSON;
   table('chart-fields', t('chartFieldsHead'), t('chartFields'));
   table('video-opts', t('videoOptsHead'), t('videoOpts'));

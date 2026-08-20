@@ -98,7 +98,7 @@ The line starts at 82px and gives up size — down to 44px — to land on two li
 
 Because the output is a still, there is no tooltip to fall back on — every value has to be on the image. Value labels are therefore on by default, only the last point of a line is labelled, and only the extremes of a scatter are named.
 
-**The palette** is six colours in a fixed order, the first being a brand gold. It was chosen by searching orderings and running Anthropic's data-viz validator against the ink surface: worst adjacent CVD ΔE 14.8, worst adjacent normal-vision ΔE 19.7, every slot inside the dark lightness band and over 3:1 contrast, and the first three clearing the all-pairs gate that scatter needs. Colours you add or edit are checked by the same code — [assets/validate_palette.js](assets/validate_palette.js) is that validator, vendored — and the panel says in plain words what a reader would struggle with. Past the sixth slot extra series go grey rather than repeat a hue, since a repeated colour claims two series are one.
+**The palette** is six colours in a fixed order, the first being a brand gold. It was chosen by searching orderings and running Anthropic's data-viz validator against the ink surface, which measures how far apart colourblind readers see each neighbouring pair: worst adjacent CVD ΔE 14.8, worst adjacent normal-vision ΔE 19.7, every slot inside the dark lightness band and over 3:1 contrast, and the first three clearing the all-pairs gate that scatter needs. Colours you add or edit are checked by the same code — [assets/validate_palette.js](assets/validate_palette.js) is that validator, vendored — and the panel says in plain words what a reader would struggle with. Past the sixth slot extra series go grey rather than repeat a hue, since a repeated colour claims two series are one.
 
 **Video.** Paste or drop images **and MP4/MOV clips**, drag the thumbnails into order, type a subtitle under any of them, and record a vertical slideshow — 30 seconds by default, split evenly across the slides. **Motion** sets what each slide does: still, push in, pull out, alternating (the default — a long reel stops feeling like one repeated move), or a slow upward drift. **Transition** sets the handover: crossfade, hard cut, through black, or push up. An **opening title** (2s: logo, wordmark, gold rule, date) and an **end card** (2.4s: logo, `READ MORE AT`, the handle, `LINK IN BIO`) are on by default and can be switched off.
 
@@ -222,7 +222,7 @@ Both check pages take `?case=stress`.
 
 文件不会上传到任何地方——始终留在页面里——但打开和解码长片段是一段看得见的等待，所以投放区下面有一条进度条。它按文件真实经过的步骤推进（打开、读元数据、已缓冲比例、第一帧、缩略图），整批文件共用一条进度，而不是拿计时器假装成进度。
 
-**字幕**在每张缩略图下面直接输入，**一行一条**，用 Montserrat 粗体烧录进画面，每行带一块深色底——素材千变万化，渐变遮罩只是猜测，底块才是保证。一张素材写多条时，它们会在这张的时段里依次出现，时间按字数分配（长句读起来慢，就给它更长），每条至少 1.2 秒，短句不会一闪而过；缩略图下面会显示条数和最短那条的秒数，凑不够 1.2 秒时标红。条与条之间是硬切，因为两块半透明底叠在一起只会更糊。字幕位置全片固定，不会跟着画面跳动；也因此，给整张卡片配字幕会压到卡片自己的页脚，字幕更适合配照片和视频片段。
+**字幕**在每张缩略图下面直接输入，**每行一条**，用 Montserrat 粗体烧录进画面，每行带一块深色底——素材千变万化，渐变遮罩只是猜测，底块才是保证。一张素材写多条时，它们会在这张的时段里依次出现，时间按字数分配（长句读起来慢，就给它更长），每条至少 1.2 秒，短句不会一闪而过；缩略图下面会显示条数和最短那条的秒数，凑不够 1.2 秒时标红。条与条之间是硬切，因为两块半透明底叠在一起只会更糊。字幕位置全片固定，不会跟着画面跳动；也因此，给整张卡片配字幕会压到卡片自己的页脚，字幕更适合配照片和视频片段。
 
 录制按真实时间走——30 秒视频就要录 30 秒，因为 MediaRecorder 是实时编码——录制期间请保持本页在最前。中途点「取消」会直接中断，不会产出任何文件。Chrome / Edge / Safari 输出 MP4（H.264）；Firefox 只能输出 WebM，TikTok 收，Instagram 可能不收。
 
