@@ -490,6 +490,7 @@ const STR = {
     webmWarn: 'This browser can only record WebM. TikTok accepts it; Instagram may not — if the upload fails, convert to MP4.',
     videoMeta: (mime, n) => `${V.W}×${V.H} · ${mime.split(';')[0]} · ${n} slides`,
     clipFail: 'That clip could not be read — try an MP4 or MOV',
+    clipCodec: (name) => `${name}: this browser cannot decode that video. It is almost certainly HEVC (H.265), which most browsers will not play — convert it to H.264 and it will work.`,
     adding: (i, n, name) => `Adding ${i} of ${n} · ${name}`,
     stage_open: 'opening the file',
     stage_meta: 'reading its size and duration',
@@ -614,6 +615,7 @@ const STR = {
     webmWarn: '当前浏览器只能录 WebM。TikTok 可以传，Instagram 可能不收——如果上传失败，转成 MP4 再传。',
     videoMeta: (mime, n) => `${V.W}×${V.H} · ${mime.split(';')[0]} · ${n} 张`,
     clipFail: '这个片段读不了，请换成 MP4 或 MOV',
+    clipCodec: (name) => `${name}：当前浏览器解码不了这个视频。多半是 HEVC（H.265）编码，绝大多数浏览器都不支持——转成 H.264 就可以了。`,
     adding: (i, n, name) => `正在加入第 ${i} / ${n} 个 · ${name}`,
     stage_open: '打开文件',
     stage_meta: '读取尺寸和时长',
@@ -1279,8 +1281,10 @@ async function addSlides(files) {
       }
       at(1, 'stage_done');
       renderStrip();                     // each one appears as it lands
-    } catch (_) {
-      status($('v-status'), f.type.startsWith('video/') ? 'clipFail' : 'imgFail', 'err');
+    } catch (err) {
+      const undecodable = err && err.message === 'undecodable';
+      status($('v-status'), undecodable ? 'clipCodec'
+        : f.type.startsWith('video/') ? 'clipFail' : 'imgFail', 'err', f.name);
     }
   }
   hideProgress();

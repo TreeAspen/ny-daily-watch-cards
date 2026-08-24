@@ -13,7 +13,7 @@
 
 import { Muxer, ArrayBufferTarget } from './mp4-muxer.mjs';
 import { asSlide, planTimeline, framesOnScreen, drawFrame, fpsFor, V } from './video.js';
-import { readVideoTrack, decodeTrack } from './demux.js';
+import { readVideoTrack, decodeTrack, decodable } from './demux.js';
 
 const VIDEO_CODEC = 'avc1.4d0028';     // H.264 Main, level 4.0 — 1080x1920 at 30fps
 const AUDIO_CODEC = 'mp4a.40.2';       // AAC-LC
@@ -197,7 +197,8 @@ export async function exportVideo(canvas, rawSlides, opts, onProgress, shouldSto
   for (const [i] of straight) {
     try {
       const track = await readVideoTrack(slides[i].file);
-      if (track && track.samples.length) tracks.set(i, track);
+      // Demuxing proves nothing about decoding — ask before committing.
+      if (track && track.samples.length && await decodable(track)) tracks.set(i, track);
     } catch (_) { /* this one gets sampled like any other */ }
   }
   for (const i of [...straight.keys()]) if (!tracks.has(i)) straight.delete(i);

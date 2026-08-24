@@ -106,6 +106,20 @@ export async function readVideoTrack(file) {
   });
 }
 
+/* Can this browser's WebCodecs actually decode the track? Reading a file is not
+   the same as being able to play it: HEVC demuxes fine everywhere and decodes
+   almost nowhere, and committing to the frame-exact path without asking left
+   the clip silently missing from the export. */
+export async function decodable(track) {
+  if (!track || typeof VideoDecoder === 'undefined') return false;
+  const config = { codec: track.codec, codedWidth: track.width, codedHeight: track.height };
+  if (track.description) config.description = track.description;
+  try {
+    const support = await VideoDecoder.isConfigSupported(config);
+    return !!support.supported;
+  } catch (_) { return false; }
+}
+
 /* Hands every frame of a track to `onFrame`, in presentation order, with the
    timestamp it carries in the file. */
 export async function decodeTrack(track, onFrame, shouldStop) {
