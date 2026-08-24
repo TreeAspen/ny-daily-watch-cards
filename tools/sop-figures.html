@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>SOP figure renderer</title>
+<link rel="stylesheet" href="../assets/fonts.css">
+<style>
+  /* The page is exactly the figure, so a window-sized screenshot IS the image. */
+  html,body{margin:0;padding:0;background:#121212;overflow:hidden}
+  canvas{display:block}
+</style>
+</head>
+<body>
+<script src="../assets/logo.js"></script>
+<script type="module">
+/* Renders one named figure at its natural size for tools/build_sop.py, which
+   screenshots this page once per figure. Kept out of the product pages: the
+   guide draws its own illustrations live and needs no PNG files. */
+import { renderPhotoCard, renderDarkCard, renderPoster, FONT_SPECS, loadImage }
+  from '../assets/render.js';
+import { renderChart } from '../assets/chart.js';
+import { drawFrame, drawIntro, drawOutro, V } from '../assets/video.js';
+
+const CARD = {
+  category: 'Business',
+  headline: 'Polysilicon: The Hidden Link Between America’s Solar and Chip Industries',
+  subtitle: 'New solar tariffs, signed Aug. 6 — the real target is chips.',
+  eyebrow: 'Why chips need solar',
+  heading: 'Three things to know',
+  bullets: [
+    "Chips use just 2.4% of the world's polysilicon. Solar uses nearly all the rest.",
+    'The U.S. had ~50% of global capacity in 2005. Under 2% by 2024.',
+    'Price floors and a 15% tariff take effect Dec. 4.',
+  ],
+  date: 'AUGUST 12, 2026',
+};
+const POSTER = { line: 'Two earlier AI companies failed before this one.', date: 'August 3, 2026' };
+const SRC = 'Source: Commerce Department';
+const CHARTS = {
+  bar: { type: 'bar', title: 'America’s capacity collapsed', subtitle: 'US share of world capacity',
+    unit: '%', source: SRC, categories: ['2005', '2010', '2015', '2020', '2024'],
+    series: [{ name: 'US share', values: [50, 34, 12, 4, 1.8] }] },
+  hbar: { type: 'hbar', title: 'Where the tariff lands', subtitle: 'Added cost per panel',
+    unit: '$', source: SRC,
+    categories: ['Utility-scale solar', 'Community solar', 'Residential rooftop', 'Commercial rooftop'],
+    series: [{ name: 'Added cost', values: [41, 33, 28, 19] }] },
+  line: { type: 'line', title: 'Prices fell below cost', subtitle: 'Spot price per kilogram',
+    unit: '$', source: SRC, categories: ['2019', '2020', '2021', '2022', '2023', '2024'],
+    series: [{ name: 'China', values: [9, 11, 34, 38, 14, 6] },
+      { name: 'US', values: [13, 14, 29, 31, 19, 12] }] },
+  scatter: { type: 'scatter', title: 'Capacity does not track demand',
+    subtitle: 'Plant capacity against local demand', unit: 'kt', source: SRC,
+    points: [{ x: 12, y: 40, name: 'Xinjiang' }, { x: 22, y: 55 }, { x: 31, y: 28 },
+      { x: 44, y: 70 }, { x: 52, y: 35 }, { x: 61, y: 62 },
+      { x: 70, y: 18, name: 'Moses Lake' }, { x: 80, y: 48 }] },
+  donut: { type: 'donut', title: 'Who uses the world’s polysilicon', subtitle: 'Share of demand, 2024',
+    unit: '%', source: SRC, categories: ['Solar', 'Semiconductors', 'Other'],
+    series: [{ name: 'share', values: [96, 2.4, 1.6] }] },
+  stat: { type: 'stat', title: 'Chips use almost none of it',
+    subtitle: 'Share of world polysilicon going to semiconductors', source: SRC,
+    value: '2.4%', delta: 'down from 6% in 2015',
+    label: 'of the world’s polysilicon goes to chipmakers.',
+    body: ['Solar takes nearly all of the rest, at a purity chipmakers cannot use.',
+      'So a plant built for panels cannot switch to chips and live on that market alone.'] },
+};
+
+const PALETTE = ['#B58C22', '#4C8FD8', '#D55181', '#9085E9', '#D8503C', '#2F9BB5'];
+
+function canvas(w, h) {
+  const c = document.createElement('canvas');
+  c.width = w; c.height = h;
+  document.body.appendChild(c);
+  return c;
+}
+
+/* The two diagrams the guide draws in SVG, redrawn here so the document can
+   carry them as pictures. */
+function drawPalette(c) {
+  const ctx = c.getContext('2d');
+  ctx.fillStyle = '#121212'; ctx.fillRect(0, 0, c.width, c.height);
+  PALETTE.forEach((hex, i) => {
+    const x = 24 + i * 168;
+    ctx.fillStyle = hex;
+    ctx.fillRect(x, 26, 144, 84);
+    ctx.fillStyle = '#EADFC2';
+    ctx.font = '600 20px "Montserrat"';
+    ctx.fillText(`${i + 1}  ${hex}`, x, 142);
+  });
+}
+
+function drawTimeline(c, zh) {
+  const ctx = c.getContext('2d');
+  ctx.fillStyle = '#121212'; ctx.fillRect(0, 0, c.width, c.height);
+  const total = 30, intro = 2, outro = 2.4;
+  const body = total - intro - outro, per = body / 3;
+  const X = 30, W = c.width - 60, k = W / total;
+  const seg = (start, len, fill, label, sub) => {
+    const x = X + start * k, w = len * k;
+    ctx.fillStyle = fill;
+    ctx.fillRect(x, 66, w - 5, 78);
+    ctx.fillStyle = '#1a1400';
+    ctx.font = '700 20px "Montserrat"';
+    ctx.fillText(label, x + 12, 112);
+    ctx.fillStyle = '#918D84';
+    ctx.font = '400 18px "Montserrat"';
+    ctx.fillText(sub, x + 12, 172);
+  };
+  ctx.fillStyle = '#EADFC2';
+  ctx.font = '600 21px "Montserrat"';
+  ctx.fillText(zh ? '总长 30 秒 · 3 张素材' : '30 seconds total · 3 slides', X, 44);
+  seg(0, intro, '#8a7a4a', zh ? '片头' : 'Title', intro + 's');
+  for (let i = 0; i < 3; i++) {
+    seg(intro + i * per, per, '#EFC050',
+      (zh ? '素材 ' : 'Slide ') + (i + 1), per.toFixed(1) + 's');
+  }
+  seg(intro + body, outro, '#8a7a4a', zh ? '片尾' : 'End', outro + 's');
+  ctx.fillStyle = '#918D84';
+  ctx.font = '400 18px "Montserrat"';
+  ctx.fillText(zh ? '每两段之间有 0.6 秒交叉淡入'
+    : 'A 0.6s crossfade sits between every pair', X, 210);
+}
+
+const FIGS = {
+  'card-photo':  async (logo) => renderPhotoCard(canvas(1080, 1350), CARD, { logo }),
+  'card-dark':   async (logo) => renderDarkCard(canvas(1080, 1350), CARD, { logo }),
+  'poster-916':  async (logo) => renderPoster(canvas(1080, 1920), POSTER, { logo, ratio: '9:16' }),
+  'poster-45':   async (logo) => renderPoster(canvas(1080, 1350), POSTER, { logo, ratio: '4:5' }),
+  'safe-916':    async (logo) => renderPoster(canvas(1080, 1920), POSTER,
+    { logo, ratio: '9:16', guides: true }),
+  'safe-45':     async (logo) => renderPoster(canvas(1080, 1350), POSTER,
+    { logo, ratio: '4:5', guides: true }),
+  'palette':     async () => drawPalette(canvas(1040, 170)),
+  'timeline-en': async () => drawTimeline(canvas(1200, 240), false),
+  'timeline-zh': async () => drawTimeline(canvas(1200, 240), true),
+};
+for (const [k, d] of Object.entries(CHARTS)) {
+  FIGS['chart-' + k] = async (logo) => renderChart(canvas(1080, 1350), d, { logo, ratio: '4:5' });
+}
+
+async function videoFigs(logo, which, sub) {
+  const card = document.createElement('canvas');
+  renderPhotoCard(card, CARD, { logo });
+  const still = await loadImage(card.toDataURL());
+  const c = canvas(V.W, V.H);
+  const ctx = c.getContext('2d');
+  if (which === 'sub') {
+    drawFrame(ctx, [{ el: still, kind: 'image', sub }], 1.2,
+      { total: 6, intro: 0, outro: 0, motion: 'none', transition: 'crossfade' });
+  } else if (which === 'intro') {
+    drawIntro(ctx, 1, { logo, date: 'August 12, 2026' });
+  } else {
+    drawOutro(ctx, 1, { logo });
+  }
+}
+FIGS['video-sub-en'] = (logo) => videoFigs(logo, 'sub', 'Chips use just 2.4% of it.');
+FIGS['video-sub-zh'] = (logo) => videoFigs(logo, 'sub', '芯片只用掉其中的 2.4%。');
+FIGS['video-intro'] = (logo) => videoFigs(logo, 'intro');
+FIGS['video-outro'] = (logo) => videoFigs(logo, 'outro');
+
+(async () => {
+  const name = new URLSearchParams(location.search).get('fig');
+  await Promise.all(FONT_SPECS.map((s) => document.fonts.load(s, 'Ag')));
+  await document.fonts.load('400 20px "Montserrat"', '中文');
+  await document.fonts.ready;
+  const logo = await loadImage(window.NDW_LOGO);
+  if (name === 'list') {
+    document.body.textContent = Object.keys(FIGS).join(' ');
+    return;
+  }
+  const fn = FIGS[name];
+  if (!fn) { document.body.textContent = 'unknown figure: ' + name; return; }
+  await fn(logo);
+  document.title = 'FIGURE READY';
+})();
+</script>
+</body>
+</html>

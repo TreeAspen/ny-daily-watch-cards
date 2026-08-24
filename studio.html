@@ -375,7 +375,8 @@ import { renderPhotoCard, renderDarkCard, renderPoster, POSTER_RATIOS, FONT_SPEC
 import { renderChart, RATIOS, CHART_TYPES, BRAND_PALETTE } from './assets/chart.js';
 import { validate } from './assets/validate_palette.js';
 import { drawFrame, drawIntro, recordVideo, pickMime, syncClips, resetClips, isVideo,
-  cuesOf, cueSpans, MIN_CUE, MOTIONS, TRANSITIONS, V } from './assets/video.js';
+  cuesOf, cueSpans, MIN_CUE, planTimeline, LONG_CLIP, STILL_SECS,
+  MOTIONS, TRANSITIONS, V } from './assets/video.js';
 
 const $ = (id) => document.getElementById(id);
 const LANG_STORE = 'ndw-cards-lang';
@@ -461,6 +462,7 @@ const STR = {
     subPlaceholder: 'subtitle… one line per cue',
     cueCount: (n, min) => `${n} cues · shortest ${min}s`,
     clipNote: (n) => `${n} clip${n > 1 ? 's' : ''} · each slide gets the same slot, and a clip loops if it is shorter`,
+    fitted: (total, still) => `Fitted to the footage · ${total} in all. A clip of a minute or more plays in full, every clip runs at its own length, and a still holds ${still}s.`,
     withIntro: 'Opening title',
     withOutro: 'End card',
     keepAudio: 'Keep clip audio',
@@ -580,6 +582,7 @@ const STR = {
     subPlaceholder: '字幕…每行一条',
     cueCount: (n, min) => `${n} 条 · 最短 ${min} 秒`,
     clipNote: (n) => `${n} 段视频 · 每张素材分到的时长相同，片段短于时长会自动循环`,
+    fitted: (total, still) => `已按素材自适应 · 全长 ${total}。有一分钟及以上的片段时，每段视频都按自身长度完整播放，静态图各占 ${still} 秒。`,
     withIntro: '片头',
     withOutro: '片尾',
     keepAudio: '保留片段原声',
@@ -1029,11 +1032,16 @@ const videoOpts = () => ({
   },
 });
 
+/* The running time is the plan's, not the number in the box: a cut fitted to
+   long footage sets its own length. */
+const plannedTotal = () => planTimeline(video.slides, videoOpts()).total;
+
 function paintVideoAt(frac) {
   const ctx = $('v-canvas').getContext('2d');
   const o = videoOpts();
+  const total = planTimeline(video.slides, o).total;
   // Scrubbing seeks the clips; playing lets them run. Same frames either way.
-  if (video.slides.length) syncClips(video.slides, frac * o.total, o, { live: video.playing });
+  if (video.slides.length) syncClips(video.slides, frac * total, o, { live: video.playing });
   // With nothing loaded, hold the finished opening title rather than a black
   // frame, so the tab shows what it makes.
   if (!video.slides.length) {
@@ -1041,9 +1049,12 @@ function paintVideoAt(frac) {
     if (o.intro) drawIntro(ctx, 1, o.brand);
     return;
   }
-  drawFrame(ctx, video.slides, frac * o.total, o);
+  drawFrame(ctx, video.slides, frac * total, o);
 }
 
+const clock = (n) => (n >= 60
+  ? Math.floor(n / 60) + ':' + String(Math.round(n % 60)).padStart(2, '0') + ''
+  : n.toFixed(0) + 's');
 const secs = (n) => (n >= 60 ? Math.floor(n / 60) + ':' + String(Math.round(n % 60)).padStart(2, '0')
   : n.toFixed(1) + 's');
 
@@ -1076,13 +1087,13 @@ function renderStrip() {
 /* One line per cue, so the seconds each one gets are worth showing — a cue
    under the floor is one nobody can finish reading. */
 function paintCueInfo() {
-  const o = videoOpts();
-  const per = Math.max(0.2, o.total - o.intro - o.outro) / (video.slides.length || 1);
+  const plan = planTimeline(video.slides, videoOpts());
   document.querySelectorAll('#v-strip .cues').forEach((el) => {
-    const slide = video.slides[+el.dataset.cues];
+    const i = +el.dataset.cues;
+    const slide = video.slides[i];
     const cues = cuesOf(slide);
     if (cues.length < 2) { el.textContent = ''; el.className = 'cues'; return; }
-    const spans = cueSpans(cues, per);
+    const spans = cueSpans(cues, plan.spans[i] || 1);
     const min = Math.min(...spans);
     el.textContent = t('cueCount', cues.length, min.toFixed(1));
     el.className = 'cues' + (min < MIN_CUE - 0.01 ? ' tight' : '');
@@ -1153,11 +1164,19 @@ $('v-strip').addEventListener('drop', (e) => {
 function updateVideoMeta() {
   const n = video.slides.length;
   const o = videoOpts();
-  const body = Math.max(0.2, o.total - o.intro - o.outro);
+  const plan = planTimeline(video.slides, o);
   const clips = video.slides.filter((s) => s.kind === 'video').length;
-  $('v-per').textContent = n
-    ? t('perSlide', n, (body / n).toFixed(1)) + (clips ? ' · ' + t('clipNote', clips) : '')
-    : t('noSlides');
+
+  // Footage a minute or longer takes the running time out of the box's hands,
+  // so the box stops pretending to be in charge of it.
+  $('v-secs').disabled = plan.fitted;
+  if (plan.fitted) $('v-secs').value = Math.round(plan.total);
+
+  $('v-per').textContent = !n ? t('noSlides')
+    : plan.fitted
+      ? t('fitted', clock(plan.total), STILL_SECS)
+      : t('perSlide', n, (plan.body / n).toFixed(1)) +
+        (clips ? ' · ' + t('clipNote', clips) : '');
   paintCueInfo();
   $('v-meta').textContent = video.mime ? t('videoMeta', video.mime, n) : t('noRecorder');
   $('v-render').disabled = !n || !video.mime || video.recording;
@@ -1276,7 +1295,7 @@ $('v-play').addEventListener('click', () => {
   if (!video.slides.length) return;
   video.playing = true;
   $('v-play').textContent = t('btnPause');
-  const total = videoOpts().total;
+  const total = plannedTotal();
   const started = performance.now() - (+$('v-scrub').value / 1000) * total * 1000;
   const tick = () => {
     if (!video.playing) return;
@@ -1297,12 +1316,13 @@ $('v-render').addEventListener('click', async () => {
   $('v-cancel').hidden = false;
   $('v-prog').hidden = false;
   const o = videoOpts();
+  const runFor = plannedTotal();
   try {
     const { blob, ext, mime, cancelled } = await recordVideo(
       $('v-canvas'), video.slides, o,
       (p) => {
         $('v-prog').value = p;
-        status($('v-status'), 'recording', '', (p * o.total).toFixed(1), o.total);
+        status($('v-status'), 'recording', '', (p * runFor).toFixed(1), runFor.toFixed(0));
       },
       () => !video.recording,
     );

@@ -299,6 +299,50 @@ export function drawSubtitle(ctx, text, alpha = 1) {
   ctx.textAlign = 'left';
 }
 
+/* ---- the timeline ------------------------------------------------------ */
+/* Short footage is cut to a rhythm you choose: the running time is yours and
+   every slide gets an equal share of it. But a clip a minute or longer is not
+   an illustration of the story, it IS the story — cutting it to fit a 30s
+   setting would throw most of it away. So once any clip runs a minute or more
+   the plan flips: every clip plays in full, stills take a fixed beat, and the
+   running time is whatever that adds up to, plus the titles. */
+export const LONG_CLIP = 60;      // seconds: at or past this, the cut fits the footage
+export const STILL_SECS = 5;      // what a still is worth when the footage leads
+
+const durOf = (slide) => (slide.kind === 'video' && slide.el.duration > 0
+  ? slide.el.duration : 0);
+
+export function planTimeline(slides, opts = {}) {
+  const intro = opts.intro || 0;
+  const outro = opts.outro || 0;
+  const fitted = slides.some((s) => durOf(s) >= LONG_CLIP);
+
+  let spans;
+  if (fitted) {
+    const still = opts.stillSecs || STILL_SECS;
+    spans = slides.map((s) => durOf(s) || still);
+  } else {
+    const room = Math.max(0.2, (opts.total || 30) - intro - outro);
+    spans = slides.map(() => room / (slides.length || 1));
+  }
+
+  const body = spans.reduce((a, b) => a + b, 0) || 0.2;
+  const starts = [];
+  let at = 0;
+  for (const span of spans) { starts.push(at); at += span; }   // measured from the body's start
+
+  return { fitted, spans, starts, body, intro, outro, total: intro + body + outro };
+}
+
+/* Which slide is on screen `st` seconds into the body, and how far into it. */
+function slideAt(plan, st) {
+  const n = plan.spans.length;
+  for (let i = 0; i < n; i++) {
+    if (st < plan.starts[i] + plan.spans[i]) return { i, local: st - plan.starts[i] };
+  }
+  return { i: n - 1, local: plan.spans[n - 1] };
+}
+
 /* ---- cues -------------------------------------------------------------- */
 /* A slide's subtitle is one cue per line. The slot is shared out by length,
    because a long line needs longer to read than a short one, with a floor so a
@@ -340,20 +384,24 @@ export function cueAt(slide, local, per) {
    (real time, let it run) and the scrub preview (seek to the exact frame) can
    ask for the same moment in two different ways. */
 export function syncClips(slides, t, opts, { live = false, gains = null } = {}) {
-  const { total, intro = 0, outro = 0 } = opts;
+  const intro = opts.intro || 0;
   const fade = opts.transition === 'cut' ? 0 : (opts.fade ?? 0.6);
-  const body = Math.max(0.2, total - intro - outro);
-  const per = body / (slides.length || 1);
+  const plan = planTimeline(slides, opts);
   const st = t - intro;
-  const active = st < 0 ? -1 : Math.min(slides.length - 1, Math.floor(st / per));
+  const active = st < 0 ? -1 : slideAt(plan, Math.min(st, plan.body)).i;
 
   slides.forEach((slide, i) => {
     if (slide.kind !== 'video') return;
     const el = slide.el;
-    const local = st - i * per;
+    const per = plan.spans[i];
+    const local = st - plan.starts[i];
+    // A clip that fills its own slot has nothing to loop back for; a short one
+    // repeats rather than freezing on its last frame.
+    el.loop = per > (el.duration || 0) + 0.05;
     // A clip is already on screen while the previous slide fades out of it.
     const onScreen = i === active ||
-      (i === active + 1 && fade > 0 && st > 0 && st - active * per > per - fade);
+      (i === active + 1 && fade > 0 && active >= 0 &&
+        st - plan.starts[active] > plan.spans[active] - fade);
 
     if (gains) gains.get(slide) && (gains.get(slide).gain.value = i === active ? 1 : 0);
 
@@ -423,13 +471,12 @@ function teardownAudio(audio, slides) {
    preview through the same code the recorder runs. */
 export function drawFrame(ctx, rawSlides, t, opts) {
   const slides = rawSlides.length && rawSlides[0].el ? rawSlides : rawSlides.map(asSlide);
-  const { total, intro = 0, outro = 0, brand } = opts;
+  const { intro = 0, outro = 0, brand } = opts;
   const subs = opts.subtitles !== false;
   const motion = opts.motion ?? (opts.zoom === false ? 'none' : 'in');
   const transition = opts.transition || 'crossfade';
   // A cut is a crossfade with no time in it, so the boundaries fall out free.
   const fade = transition === 'cut' ? 0 : (opts.fade ?? 0.6);
-  const body = Math.max(0.2, total - intro - outro);
 
   ctx.fillStyle = INK;
   ctx.fillRect(0, 0, V.W, V.H);
@@ -439,8 +486,9 @@ export function drawFrame(ctx, rawSlides, t, opts) {
     return;
   }
 
-  const per = body / slides.length;
-  const m = (i, local) => motionAt(motion, i, local / per);
+  const plan = planTimeline(slides, opts);
+  const body = plan.body;
+  const m = (i, local) => motionAt(motion, i, local / plan.spans[i]);
 
   // The outro's own clock starts while the last slide is still fading out, so
   // the animation does not restart when the crossfade finishes.
@@ -452,14 +500,14 @@ export function drawFrame(ctx, rawSlides, t, opts) {
     const rem = intro - t;
     if (rem < fade) {
       drawSlide(ctx, slides[0], m(0, 0), 1 - rem / fade);
-      if (subs) drawSubtitle(ctx, cueAt(slides[0], 0, body / slides.length), 1 - rem / fade);
+      if (subs) drawSubtitle(ctx, cueAt(slides[0], 0, plan.spans[0]), 1 - rem / fade);
     }
     return;
   }
 
   const st = Math.min(t - intro, body);
-  const i = Math.min(slides.length - 1, Math.floor(st / per));
-  const local = st - i * per;
+  const { i, local } = slideAt(plan, st);
+  const per = plan.spans[i];
   const next = slides[i + 1];
   const turning = next && fade > 0 && local > per - fade;
   const u = turning ? (local - (per - fade)) / fade : 0;
@@ -475,7 +523,7 @@ export function drawFrame(ctx, rawSlides, t, opts) {
       if (subs) drawSubtitle(ctx, cueAt(slides[i], local, per), 1 - u * 2);
     } else {
       drawSlide(ctx, next, m(i + 1, 0), (u - 0.5) * 2);
-      if (subs) drawSubtitle(ctx, cueAt(next, 0, per), (u - 0.5) * 2);
+      if (subs) drawSubtitle(ctx, cueAt(next, 0, plan.spans[i + 1]), (u - 0.5) * 2);
     }
   } else if (turning && transition === 'push') {
     const e = ease(u);
@@ -485,14 +533,14 @@ export function drawFrame(ctx, rawSlides, t, opts) {
     ctx.restore();
     ctx.save(); ctx.translate(0, V.H * (1 - e));
     drawSlide(ctx, next, m(i + 1, 0), 1);
-    if (subs) drawSubtitle(ctx, cueAt(next, 0, per), 1);
+    if (subs) drawSubtitle(ctx, cueAt(next, 0, plan.spans[i + 1]), 1);
     ctx.restore();
   } else {
     drawSlide(ctx, slides[i], m(i, local), 1);
     if (turning) drawSlide(ctx, next, m(i + 1, 0), u);
     if (subs) {
       const here = cueAt(slides[i], local, per);
-      const there = turning ? cueAt(next, 0, per) : '';
+      const there = turning ? cueAt(next, 0, plan.spans[i + 1]) : '';
       // The subtitle crossfades with its own slide, unless the words do not
       // change — then it simply stays put rather than blinking.
       const same = turning && there === here;
@@ -529,15 +577,18 @@ export async function recordVideo(canvas, rawSlides, opts, onProgress, shouldSto
   rec.start(200);
   const started = performance.now();
 
+  // The plan decides the running time, so a cut fitted to a long clip records
+  // for as long as the footage actually runs.
+  const runFor = planTimeline(slides, opts).total;
   let cancelled = false;
   await new Promise((res) => {
     const tick = () => {
       if (shouldStop?.()) { cancelled = true; res(); return; }
       const t = (performance.now() - started) / 1000;
-      if (t >= opts.total) { res(); return; }
+      if (t >= runFor) { res(); return; }
       syncClips(slides, t, opts, { live: true, gains: audio ? audio.gains : null });
       drawFrame(ctx, slides, t, opts);
-      onProgress?.(t / opts.total);
+      onProgress?.(t / runFor);
       requestAnimationFrame(tick);
     };
     requestAnimationFrame(tick);
@@ -553,7 +604,7 @@ export async function recordVideo(canvas, rawSlides, opts, onProgress, shouldSto
   }
 
   // Hold the last frame briefly so the final slide is not cut mid-fade.
-  drawFrame(ctx, slides, Math.max(0, opts.total - 0.01), opts);
+  drawFrame(ctx, slides, Math.max(0, runFor - 0.01), opts);
   await new Promise((r) => setTimeout(r, 260));
   rec.stop();
   tracks.forEach((tr) => tr.stop());

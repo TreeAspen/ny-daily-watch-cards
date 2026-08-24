@@ -104,7 +104,9 @@ Because the output is a still, there is no tooltip to fall back on — every val
 
 Every slide runs the full width of the frame — never pillarboxed. A 9:16 still fills the height too; anything shorter keeps its full width and leaves blurred bands above and below, sitting a little high in the frame so the app's own caption covers blur rather than picture.
 
-A **clip** takes the same slot as any still and plays at its own speed inside it, looping if it is shorter than the slot and cut off if it is longer — so set the total seconds against the footage you have. Its sound is recorded too, unless **Keep clip audio** is off; stills are silent either way. Only formats the browser itself can play are accepted, which in practice means MP4 (H.264) and MOV.
+A **clip** takes the same slot as any still and plays at its own speed inside it, looping if it is shorter than the slot and cut off if it is longer — so set the total seconds against the footage you have.
+
+Past a minute, that arithmetic stops making sense: a clip that long is not an illustration of the story, it is the story, and trimming it to a 30-second setting would throw most of it away. So once any clip runs **a minute or more the cut fits itself to the footage** — every clip plays in full at its own length, a still holds 5s, and the running time becomes the sum of those plus the opening title and end card. The seconds field locks and shows the computed total. Its sound is recorded too, unless **Keep clip audio** is off; stills are silent either way. Only formats the browser itself can play are accepted, which in practice means MP4 (H.264) and MOV.
 
 Nothing is uploaded — the file never leaves the page — but opening and decoding a long clip is a visible wait, so a bar under the drop zone reports it. It advances on the steps the file actually goes through (opening, metadata, buffered fraction, first frame, thumbnail) across the whole batch, rather than a timer pretending to be progress.
 
@@ -218,7 +220,9 @@ Both check pages take `?case=stress`.
 
 每张素材都横向满屏，两侧不留黑边。9:16 的图连高度一起铺满；比例更矮的保持满宽，只在上下留模糊填充，并且整体略微上移，让平台的文案盖住模糊带而不是画面本身。
 
-**视频片段**和静态图分到同样长的时段，在这个时段里按自己的速度播放：短了自动循环，长了会被截断——所以总秒数要按手里的素材来设。片段的原声也会录进去，除非关掉「保留片段原声」；静态图本来就没有声音。只接受浏览器自己能播放的格式，实际上就是 MP4（H.264）和 MOV。
+**视频片段**和静态图分到同样长的时段，在这个时段里按自己的速度播放：短了自动循环，长了会被截断——所以总秒数要按手里的素材来设。
+
+超过一分钟就不该这么算了：这么长的片段不是给报道配的插图，它本身就是报道，硬塞进 30 秒的设定等于把大部分内容扔掉。所以只要素材里有**一分钟及以上的片段，整条片子就改为按素材自适应**——每段视频都按自身长度完整播放，静态图各占 5 秒，总长就是它们加上片头和片尾。此时秒数输入框会锁定并显示算好的总时长。片段的原声也会录进去，除非关掉「保留片段原声」；静态图本来就没有声音。只接受浏览器自己能播放的格式，实际上就是 MP4（H.264）和 MOV。
 
 文件不会上传到任何地方——始终留在页面里——但打开和解码长片段是一段看得见的等待，所以投放区下面有一条进度条。它按文件真实经过的步骤推进（打开、读元数据、已缓冲比例、第一帧、缩略图），整批文件共用一条进度，而不是拿计时器假装成进度。
 

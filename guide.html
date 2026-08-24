@@ -220,7 +220,7 @@ const STR = {
     s6body: 'A 9:16 image gets the app’s own caption, buttons and tabs painted over it. The poster and the 9:16 chart keep their text inside the box that survives that; the guides toggle shows you where the danger is, and never exports.',
 
     s7title: 'Video',
-    s7body: 'Drop in the stills you already made — or MP4 and MOV clips — drag them into order, type subtitles under any of them — one line per cue — and record. Slides run the full width of the frame: a 4:5 card keeps its width and gets blurred bands above and below rather than being shrunk. A clip plays at its own speed inside its slot, loops if it is shorter than the slot, and keeps its sound unless you turn that off. Nothing is uploaded anywhere — the files stay in the page — but a long clip takes a moment to open and decode, and the bar under the drop zone names the step it is on.',
+    s7body: 'Drop in the stills you already made — or MP4 and MOV clips — drag them into order, type subtitles under any of them — one line per cue — and record. Slides run the full width of the frame: a 4:5 card keeps its width and gets blurred bands above and below rather than being shrunk. A clip plays at its own speed inside its slot, loops if it is shorter than the slot, and keeps its sound unless you turn that off. Footage of a minute or more changes the arithmetic: the cut then fits itself to the footage instead, every clip plays in full, and the running time becomes whatever that adds up to plus the titles. Nothing is uploaded anywhere — the files stay in the page — but a long clip takes a moment to open and decode, and the bar under the drop zone names the step it is on.',
     figTimeT: 'How the 30 seconds are spent',
     figTimeC: 'The opening title and end card come off the top of the total; what is left is split evenly between the slides.',
     s7note: 'Recording runs in real time — a 30-second video takes 30 seconds — and a background tab drops frames. Leave the tab in front until it finishes, or press Cancel.',
@@ -253,7 +253,7 @@ const STR = {
     ],
     videoOptsHead: ['Control', 'What it does'],
     videoOpts: [
-      ['Total seconds', 'Split evenly across the slides after the title and end card are taken off'],
+      ['Total seconds', 'Split evenly across the slides after the title and end card are taken off. Locked, and computed for you, once a clip runs a minute or more'],
       ['Motion', 'Still · push in · pull out · alternating (the default) · drift up'],
       ['Transition', 'Crossfade · hard cut · through black · push up'],
       ['Opening title', 'Two seconds: logo, masthead, gold rule, date'],
@@ -332,7 +332,7 @@ const STR = {
     s6body: '9:16 的图会被 App 自己的文案、按钮和顶部标签盖住一部分。海报和 9:16 图表都会把文字放在不会被盖的范围内；勾上参考线就能看到危险区域在哪，参考线不会出现在导出的图里。',
 
     s7title: '视频',
-    s7body: '把做好的图——或者 MP4 / MOV 视频片段——丢进去，拖动排序，可以在任意一张下面写字幕（每行一条，依次出现），然后录制。每张素材都横向铺满画面：4:5 的卡片保持满宽，上下补模糊背景，而不是被缩小。视频片段按自己的速度播放，短于分配时长会自动循环，原声默认保留。文件不会上传到任何地方（全部留在页面里），但长片段打开和解码需要一点时间，投放区下面的进度条会说明当前进行到哪一步。',
+    s7body: '把做好的图——或者 MP4 / MOV 视频片段——丢进去，拖动排序，可以在任意一张下面写字幕（每行一条，依次出现），然后录制。每张素材都横向铺满画面：4:5 的卡片保持满宽，上下补模糊背景，而不是被缩小。视频片段按自己的速度播放，短于分配时长会自动循环，原声默认保留。素材里有一分钟及以上的片段时，算法会反过来：总长按素材本身自适应，每段视频都完整播放，总时长就是它们加上片头片尾。文件不会上传到任何地方（全部留在页面里），但长片段打开和解码需要一点时间，投放区下面的进度条会说明当前进行到哪一步。',
     figTimeT: '30 秒是怎么分配的',
     figTimeC: '总时长先扣掉片头和片尾，剩下的平均分给每张图。',
     s7note: '录制按真实时间进行——30 秒的视频就要录 30 秒——切到后台会掉帧。录完之前请让这个标签页保持在最前，不想等就点「取消」。',
@@ -365,7 +365,7 @@ const STR = {
     ],
     videoOptsHead: ['控件', '作用'],
     videoOpts: [
-      ['总秒数', '扣掉片头片尾后，剩下的平均分给每张图'],
+      ['总秒数', '扣掉片头片尾后，剩下的平均分给每张素材。有一分钟及以上的片段时，这个数字改为自动计算并锁定'],
       ['画面动效', '静止 · 缓慢推近 · 缓慢拉远 · 推近拉远交替（默认）· 缓慢上移'],
       ['转场', '交叉淡入 · 硬切 · 黑场过渡 · 向上推移'],
       ['片头', '2 秒：logo、刊名、金色横线、日期'],
