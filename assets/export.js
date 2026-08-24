@@ -12,7 +12,7 @@
    on rAF or timers — it keeps running at full speed in a background tab. */
 
 import { Muxer, ArrayBufferTarget } from './mp4-muxer.mjs';
-import { asSlide, planTimeline, framesOnScreen, drawFrame, V } from './video.js';
+import { asSlide, planTimeline, framesOnScreen, drawFrame, fpsFor, V } from './video.js';
 
 const VIDEO_CODEC = 'avc1.4d0028';     // H.264 Main, level 4.0 — 1080x1920 at 30fps
 const AUDIO_CODEC = 'mp4a.40.2';       // AAC-LC
@@ -99,7 +99,8 @@ async function renderAudio(slides, plan) {
 /* Seeking is event-driven, so it is not throttled when the tab is hidden. */
 function seekTo(el, time) {
   const want = Math.max(0, Math.min(time, (el.duration || 0) - 0.02));
-  if (Math.abs(el.currentTime - want) < 1 / (V.fps * 2)) return Promise.resolve();
+  // Tight: half a frame at 30fps would skip real seeks on 60fps footage.
+  if (Math.abs(el.currentTime - want) < 0.002) return Promise.resolve();
   return new Promise((resolve) => {
     let done = false;
     const finish = () => { if (!done) { done = true; el.removeEventListener('seeked', finish); resolve(); } };
@@ -124,7 +125,9 @@ function drain(encoder, limit) {
 export async function exportVideo(canvas, rawSlides, opts, onProgress, shouldStop) {
   const slides = rawSlides.map(asSlide);
   const plan = planTimeline(slides, opts);
-  const fps = V.fps;
+  // The footage sets the rate where there is footage, so its frames map one to
+  // one instead of being resampled onto a grid that does not divide evenly.
+  const fps = opts.fps || fpsFor(slides);
   const totalFrames = Math.max(1, Math.round(plan.total * fps));
 
   const wantAudio = opts.audio !== false && await audioSupported();
@@ -166,7 +169,16 @@ export async function exportVideo(canvas, rawSlides, opts, onProgress, shouldSto
       const slide = slides[i];
       if (slide && slide.kind === 'video') {
         const dur = slide.el.duration || 0;
-        await seekTo(slide.el, dur ? local % dur : 0);
+        let want = dur ? local % dur : 0;
+        // Land in the middle of a source frame, never on its edge: a seek to a
+        // boundary can resolve either side of it, and that alone repeated a
+        // third of the frames of a 30fps clip.
+        // The epsilon matters: f/25*25 can come back as 1.9999999999999998,
+        // and flooring that picks the frame before the right one.
+        want = slide.fps > 0
+          ? (Math.floor(want * slide.fps + 1e-4) + 0.5) / slide.fps
+          : want + 0.5 / fps;
+        await seekTo(slide.el, want);
       }
     }
 

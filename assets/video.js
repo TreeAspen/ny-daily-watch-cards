@@ -358,6 +358,53 @@ export function drawSubtitle(ctx, text, alpha = 1) {
   ctx.textAlign = 'left';
 }
 
+/* ---- frame rate -------------------------------------------------------- */
+/* Resampling footage onto a different grid repeats frames on a fixed cycle —
+   24 into 30 duplicates one frame in five, and the eye reads that cycle as
+   judder however faithfully every frame was written. So the cut takes its rate
+   from the footage instead: the longest clip sets it, and a still-only reel
+   keeps the default. */
+export function fpsFor(slides, fallback = V.fps) {
+  const clips = slides.filter((s) => s.kind === 'video' && s.fps > 0);
+  if (!clips.length) return fallback;
+  const lead = clips.reduce((a, b) => ((b.el.duration || 0) > (a.el.duration || 0) ? b : a));
+  return Math.max(12, Math.min(60, Math.round(lead.fps) || fallback));
+}
+
+/* Plays a moment of a clip and reads the spacing its own frames arrive at.
+   There is no property that reports this; rVFC's mediaTime is the only honest
+   source, and the median of a couple of dozen gaps is stable. */
+export function measureFps(el, samples = 20) {
+  return new Promise((resolve) => {
+    if (typeof el.requestVideoFrameCallback !== 'function') { resolve(0); return; }
+    const times = [];
+    let done = false;
+    const finish = () => {
+      if (done) return;
+      done = true;
+      try { el.pause(); el.currentTime = 0; } catch (_) {}
+      const gaps = [];
+      for (let i = 1; i < times.length; i++) {
+        const d = times[i] - times[i - 1];
+        if (d > 0.0005) gaps.push(d);
+      }
+      if (gaps.length < 4) { resolve(0); return; }
+      gaps.sort((a, b) => a - b);
+      const median = gaps[Math.floor(gaps.length / 2)];
+      resolve(median > 0 ? 1 / median : 0);
+    };
+    const onFrame = (now, meta) => {
+      times.push(meta.mediaTime);
+      if (times.length >= samples) { finish(); return; }
+      el.requestVideoFrameCallback(onFrame);
+    };
+    el.muted = true;
+    el.requestVideoFrameCallback(onFrame);
+    Promise.resolve(el.play()).catch(finish);
+    setTimeout(finish, 3000);
+  });
+}
+
 /* ---- the timeline ------------------------------------------------------ */
 /* Short footage is cut to a rhythm you choose: the running time is yours and
    every slide gets an equal share of it. But a clip a minute or longer is not

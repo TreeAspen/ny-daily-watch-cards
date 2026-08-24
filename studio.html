@@ -377,7 +377,7 @@ import { renderChart, RATIOS, CHART_TYPES, BRAND_PALETTE } from './assets/chart.
 import { validate } from './assets/validate_palette.js';
 import { exportVideo, offlineSupported } from './assets/export.js';
 import { drawFrame, drawIntro, recordVideo, pickMime, syncClips, resetClips, isVideo,
-  cuesOf, cueSpans, MIN_CUE, planTimeline, LONG_CLIP, STILL_SECS,
+  cuesOf, cueSpans, MIN_CUE, planTimeline, LONG_CLIP, STILL_SECS, measureFps,
   MOTIONS, TRANSITIONS, V } from './assets/video.js';
 
 const $ = (id) => document.getElementById(id);
@@ -496,6 +496,7 @@ const STR = {
     stage_buffer: 'buffering',
     stage_frame: 'decoding the first frame',
     stage_thumb: 'making a thumbnail',
+    stage_rate: 'reading its frame rate',
     stage_done: 'ready',
 
     waiting: 'Waiting for JSON…',
@@ -619,6 +620,7 @@ const STR = {
     stage_buffer: '缓冲中',
     stage_frame: '解码第一帧',
     stage_thumb: '生成缩略图',
+    stage_rate: '读取帧率',
     stage_done: '完成',
 
     waiting: '等待 JSON…',
@@ -1076,7 +1078,8 @@ function renderStrip() {
     d.draggable = true;
     d.dataset.i = i;
     const dur = slide.kind === 'video' && slide.dur
-      ? `<span class="dur">▶ ${secs(slide.dur)}</span>` : '';
+      ? `<span class="dur">▶ ${secs(slide.dur)}${slide.fps ? ' · ' + Math.round(slide.fps) + 'fps' : ''}</span>`
+      : '';
     d.innerHTML =
       `<div class="shot"><img src="${slide.thumb || ''}" alt=""><span class="n">${i + 1}</span>` +
       dur +
@@ -1261,10 +1264,14 @@ async function addSlides(files) {
     try {
       if (f.type.startsWith('video/')) {
         const el = await loadClip(f, at);
-        at(0.8, 'stage_thumb');
+        at(0.78, 'stage_thumb');
         const thumb = await clipThumb(el);
+        at(0.88, 'stage_rate');
+        // Its own frame rate, so the export can match it instead of resampling.
+        const fps = await measureFps(el);
         // The file is kept so the offline export can read its audio track.
-        video.slides.push({ el, file: f, kind: 'video', sub: '', thumb, dur: el.duration || 0 });
+        video.slides.push({ el, file: f, kind: 'video', sub: '', thumb,
+          dur: el.duration || 0, fps });
       } else {
         const el = await loadImage(URL.createObjectURL(f));
         at(0.9, 'stage_thumb');
