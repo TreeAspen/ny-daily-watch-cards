@@ -223,14 +223,14 @@ const STR = {
     s7body: 'Drop in the stills you already made — or MP4 and MOV clips — drag them into order, type subtitles under any of them — one line per cue — and record. Slides run the full width of the frame: a 4:5 card keeps its width and gets blurred bands above and below rather than being shrunk. A clip plays at its own speed inside its slot, loops if it is shorter than the slot, and keeps its sound unless you turn that off. Footage of a minute or more changes the arithmetic: the cut then fits itself to the footage instead, every clip plays in full, and the running time becomes whatever that adds up to plus the titles. Nothing is uploaded anywhere — the files stay in the page — but a long clip takes a moment to open and decode, and the bar under the drop zone names the step it is on.',
     figTimeT: 'How the 30 seconds are spent',
     figTimeC: 'The opening title and end card come off the top of the total; what is left is split evenly between the slides.',
-    s7note: 'Recording runs in real time — a 30-second video takes 30 seconds — and a background tab drops frames. Leave the tab in front until it finishes, or press Cancel.',
+    s7note: 'The export encodes frame by frame instead of filming the screen, so it does not lose anything if you switch tabs, and it usually finishes quicker than the video is long. A browser without frame-by-frame encoding falls back to recording in real time — only then does the tab have to stay in front. Cancel stops either one and writes nothing.',
 
     s8title: 'When something looks wrong',
     fixes: [
       ['A red line under the card', 'The text will not fit at the minimum size. Shorten the line named — do not fight it with the crop.'],
       ['Copy button does nothing', 'Clipboard images need https or localhost. On the published site it works; opening the file directly from disk it will not.'],
       ['Nothing renders at all', 'The page uses ES modules, so it must be served over HTTP. Double-clicking index.html is blocked by the browser.'],
-      ['The video came out stuttering', 'The tab was in the background while recording. Record again with the tab in front.'],
+      ['The video came out stuttering', 'Only the real-time fallback can stutter, and only when the tab is in the background. Chrome, Edge and Safari encode frame by frame instead and are not affected.'],
       ['Instagram rejects the video', 'Firefox can only record WebM. Use Chrome, Edge or Safari to get MP4.'],
       ['A chart colour warning', 'Two series are too close for some readers. Press Reset to brand, or move the added colour further in hue or lightness.'],
       ['A clip will not load', 'The browser has to be able to play it. MP4 (H.264) and MOV are safe; some AVI and MKV files are not. The progress bar stops on the step that failed.'],
@@ -335,14 +335,14 @@ const STR = {
     s7body: '把做好的图——或者 MP4 / MOV 视频片段——丢进去，拖动排序，可以在任意一张下面写字幕（每行一条，依次出现），然后录制。每张素材都横向铺满画面：4:5 的卡片保持满宽，上下补模糊背景，而不是被缩小。视频片段按自己的速度播放，短于分配时长会自动循环，原声默认保留。素材里有一分钟及以上的片段时，算法会反过来：总长按素材本身自适应，每段视频都完整播放，总时长就是它们加上片头片尾。文件不会上传到任何地方（全部留在页面里），但长片段打开和解码需要一点时间，投放区下面的进度条会说明当前进行到哪一步。',
     figTimeT: '30 秒是怎么分配的',
     figTimeC: '总时长先扣掉片头和片尾，剩下的平均分给每张图。',
-    s7note: '录制按真实时间进行——30 秒的视频就要录 30 秒——切到后台会掉帧。录完之前请让这个标签页保持在最前，不想等就点「取消」。',
+    s7note: '导出是逐帧编码，不是录屏，所以切到别的标签页也不会丢内容，通常还比片长更快完成。浏览器不支持逐帧编码时才会退回实时录制，那种情况下需要保持本页在最前。中途点「取消」两种方式都会立即中断且不产出文件。',
 
     s8title: '出问题时怎么办',
     fixes: [
       ['卡片下面有红字', '文字缩到最小字号还是放不下。请缩短它点名的那一句，别靠调裁切硬解决。'],
       ['复制按钮没反应', '复制图片到剪贴板需要 https 或 localhost。线上站点可以用；直接双击本地文件打开则不行。'],
       ['页面完全不出图', '页面用了 ES 模块，必须通过 HTTP 打开。直接双击 index.html 会被浏览器拦下。'],
-      ['视频很卡', '录制期间标签页被切到后台了。让页面保持在最前重录一次。'],
+      ['视频很卡', '只有退回实时录制时才可能卡，而且只在标签页被切到后台的情况下。Chrome / Edge / Safari 走的是逐帧编码，不受影响。'],
       ['Instagram 不收这个视频', 'Firefox 只能录 WebM。用 Chrome / Edge / Safari 才能得到 MP4。'],
       ['图表提示配色问题', '有两个系列对部分读者太接近。点「恢复品牌配色」，或者把新加的颜色在色相或明度上拉开一些。'],
       ['视频片段读不进来', '浏览器必须能播放它。MP4（H.264）和 MOV 最保险，部分 AVI / MKV 不行。进度条会停在失败的那一步。'],

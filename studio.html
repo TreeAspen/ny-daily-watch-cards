@@ -374,6 +374,7 @@ import { renderPhotoCard, renderDarkCard, renderPoster, POSTER_RATIOS, FONT_SPEC
   from './assets/render.js';
 import { renderChart, RATIOS, CHART_TYPES, BRAND_PALETTE } from './assets/chart.js';
 import { validate } from './assets/validate_palette.js';
+import { exportVideo, offlineSupported } from './assets/export.js';
 import { drawFrame, drawIntro, recordVideo, pickMime, syncClips, resetClips, isVideo,
   cuesOf, cueSpans, MIN_CUE, planTimeline, LONG_CLIP, STILL_SECS,
   MOTIONS, TRANSITIONS, V } from './assets/video.js';
@@ -478,9 +479,10 @@ const STR = {
     btnRender: '● Record video',
     btnCancel: 'Cancel',
     cancelled: 'Recording cancelled — nothing was saved.',
-    renderNote: 'Recording runs in real time — a 30s video takes 30s. Keep this tab in front; a background tab throttles the frame rate and the video comes out stuttering.',
+    renderNote: 'Frames are encoded one at a time rather than captured off a clock, so the export is usually quicker than the running time and carries on at full speed in a background tab. Where a browser cannot do that it falls back to recording in real time, and then the tab does have to stay in front.',
     recording: (a, b) => `Recording ${a}s / ${b}s…`,
-    rendered: (name, mb) => `Saved ${name} · ${mb} MB`,
+    rendered: (name, mb, secs) => `Saved ${name} · ${mb} MB · took ${secs}s`,
+    encoding: (a, b) => `Encoding frame ${a} of ${b}…`,
     noRecorder: 'This browser cannot record video. Chrome, Edge or Safari can.',
     webmWarn: 'This browser can only record WebM. TikTok accepts it; Instagram may not — if the upload fails, convert to MP4.',
     videoMeta: (mime, n) => `${V.W}×${V.H} · ${mime.split(';')[0]} · ${n} slides`,
@@ -598,9 +600,10 @@ const STR = {
     btnRender: '● 录制视频',
     btnCancel: '取消',
     cancelled: '已取消录制，没有保存任何文件。',
-    renderNote: '录制按真实时间进行——30 秒的视频就要录 30 秒。录制期间请让本页保持在最前，切到后台会掉帧，视频会卡顿。',
+    renderNote: '导出是逐帧编码，不是按墙钟录屏，所以通常比片长更快，切到后台也会满速跑完、不掉帧。浏览器不支持逐帧编码时会退回实时录制，那种情况下才需要让本页保持在最前。',
     recording: (a, b) => `录制中 ${a}s / ${b}s…`,
-    rendered: (name, mb) => `已保存 ${name} · ${mb} MB`,
+    rendered: (name, mb, secs) => `已保存 ${name} · ${mb} MB · 用时 ${secs} 秒`,
+    encoding: (a, b) => `编码中 第 ${a} / ${b} 帧…`,
     noRecorder: '当前浏览器不支持录制视频，请用 Chrome / Edge / Safari。',
     webmWarn: '当前浏览器只能录 WebM。TikTok 可以传，Instagram 可能不收——如果上传失败，转成 MP4 再传。',
     videoMeta: (mime, n) => `${V.W}×${V.H} · ${mime.split(';')[0]} · ${n} 张`,
@@ -1254,7 +1257,8 @@ async function addSlides(files) {
         const el = await loadClip(f, at);
         at(0.8, 'stage_thumb');
         const thumb = await clipThumb(el);
-        video.slides.push({ el, kind: 'video', sub: '', thumb, dur: el.duration || 0 });
+        // The file is kept so the offline export can read its audio track.
+        video.slides.push({ el, file: f, kind: 'video', sub: '', thumb, dur: el.duration || 0 });
       } else {
         const el = await loadImage(URL.createObjectURL(f));
         at(0.9, 'stage_thumb');
@@ -1317,12 +1321,19 @@ $('v-render').addEventListener('click', async () => {
   $('v-prog').hidden = false;
   const o = videoOpts();
   const runFor = plannedTotal();
+  const frames = Math.round(runFor * V.fps);
+  const started = performance.now();
+  // Encode offline where the browser can; fall back to capturing the canvas in
+  // real time where it cannot.
+  const offline = await offlineSupported();
+  const run = offline ? exportVideo : recordVideo;
   try {
-    const { blob, ext, mime, cancelled } = await recordVideo(
+    const { blob, ext, mime, cancelled } = await run(
       $('v-canvas'), video.slides, o,
       (p) => {
         $('v-prog').value = p;
-        status($('v-status'), 'recording', '', (p * runFor).toFixed(1), runFor.toFixed(0));
+        if (offline) status($('v-status'), 'encoding', '', Math.round(p * frames), frames);
+        else status($('v-status'), 'recording', '', (p * runFor).toFixed(1), runFor.toFixed(0));
       },
       () => !video.recording,
     );
@@ -1331,7 +1342,8 @@ $('v-render').addEventListener('click', async () => {
     } else {
       const name = `ndw-reel-${new Date().toISOString().slice(0, 10)}.${ext}`;
       saveBlob(blob, name);
-      status($('v-status'), 'rendered', 'ok', name, (blob.size / 1048576).toFixed(1));
+      status($('v-status'), 'rendered', 'ok', name, (blob.size / 1048576).toFixed(1),
+        ((performance.now() - started) / 1000).toFixed(0));
       if (!mime.startsWith('video/mp4')) setTimeout(() => status($('v-status'), 'webmWarn', 'err'), 2200);
     }
   } catch (e) {

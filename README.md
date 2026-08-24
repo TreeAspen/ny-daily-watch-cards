@@ -112,7 +112,9 @@ Nothing is uploaded — the file never leaves the page — but opening and decod
 
 **Subtitles** are typed under each thumbnail, **one line per cue**, and burned into the frame in Montserrat bold, each line on its own backing pill — over footage nobody controls, a scrim is a guess and a pill is a guarantee. A slide with several cues shows them in turn across its slot, sharing the time out by length so a long line gets longer to be read, with a floor of 1.2s so a short one never flashes past; the strip reports the count and the shortest span, in red if the floor could not be met. Cues hard-cut into each other, because two pill-backed lines crossfading would just stack two dark boxes. They hold one fixed position for the whole cut rather than moving with the picture, which also means a subtitle on a full card slide lands over the card's own footer: put subtitles on photos and clips.
 
-Recording is wall-clock bound — a 30s video takes 30s, because MediaRecorder encodes in real time — so leave the tab in front while it runs. **Cancel** aborts and writes nothing. Output is MP4 (H.264) in Chrome, Edge and Safari; Firefox can only produce WebM, which TikTok accepts and Instagram may not.
+Export composes every frame deliberately and hands it to a WebCodecs encoder — [assets/export.js](assets/export.js), muxed with the vendored [mp4-muxer](assets/mp4-muxer.mjs) (MIT). Nothing is filmed off a clock, so a backgrounded tab cannot drop frames, and the export usually finishes in less time than the video runs (a 30s cut measured 21s of stills, 27s with a clip, in software rendering with no GPU). The clip audio for the whole timeline is rendered in one offline pass and encoded as AAC alongside.
+
+Where a browser has no frame-by-frame encoder the old real-time capture still runs as a fallback, and there the tab does have to stay in front. **Cancel** aborts either one and writes nothing. Output is MP4 (H.264) in Chrome, Edge and Safari; Firefox falls back and can only produce WebM, which TikTok accepts and Instagram may not.
 
 ## Running it locally
 
@@ -228,7 +230,9 @@ Both check pages take `?case=stress`.
 
 **字幕**在每张缩略图下面直接输入，**每行一条**，用 Montserrat 粗体烧录进画面，每行带一块深色底——素材千变万化，渐变遮罩只是猜测，底块才是保证。一张素材写多条时，它们会在这张的时段里依次出现，时间按字数分配（长句读起来慢，就给它更长），每条至少 1.2 秒，短句不会一闪而过；缩略图下面会显示条数和最短那条的秒数，凑不够 1.2 秒时标红。条与条之间是硬切，因为两块半透明底叠在一起只会更糊。字幕位置全片固定，不会跟着画面跳动；也因此，给整张卡片配字幕会压到卡片自己的页脚，字幕更适合配照片和视频片段。
 
-录制按真实时间走——30 秒视频就要录 30 秒，因为 MediaRecorder 是实时编码——录制期间请保持本页在最前。中途点「取消」会直接中断，不会产出任何文件。Chrome / Edge / Safari 输出 MP4（H.264）；Firefox 只能输出 WebM，TikTok 收，Instagram 可能不收。
+导出是把每一帧单独画好、交给 WebCodecs 编码器——见 [assets/export.js](assets/export.js)，用随项目收录的 [mp4-muxer](assets/mp4-muxer.mjs)（MIT）封装。全程不看墙钟，所以切到后台也不会掉帧，而且通常比片长更快完成（无 GPU 的软件渲染下实测：30 秒的纯静态图片子用 21 秒，带视频片段用 27 秒）。片段的音频会先离线渲染成整条时间轴的一条音轨，再按 AAC 编码一起封装。
+
+浏览器不支持逐帧编码时，会退回原来的实时录制，那种情况下才需要保持本页在最前。中途点「取消」两种方式都会立即中断且不产出文件。Chrome / Edge / Safari 输出 MP4（H.264）；Firefox 会退回并只能输出 WebM，TikTok 收，Instagram 可能不收。
 
 ## caption 规范
 

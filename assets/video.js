@@ -92,10 +92,7 @@ function drawSlide(ctx, slide, m, alpha) {
     cover(ctx, el, 0, 0, V.W, V.H, zoom);
     ctx.restore();
   } else {
-    ctx.save();
-    ctx.filter = 'blur(48px) brightness(0.42)';
-    cover(ctx, el, -60, -60, V.W + 120, V.H + 120, 1.06);
-    ctx.restore();
+    backdrop(ctx, slide);
 
     const w = V.W * zoom, h = fullH * zoom;
     const safeH = V.H - SAFE.top - SAFE.bottom;
@@ -103,6 +100,39 @@ function drawSlide(ctx, slide, m, alpha) {
     ctx.drawImage(el, (V.W - w) / 2, y, w, h);
   }
   ctx.restore();
+}
+
+/* The bands above and below a short slide are a wash, not a picture, so they
+   are blurred small and blown back up: a 48px blur over the full frame costs
+   tens of milliseconds and had been recomputed for every single frame. A still
+   never changes, so its wash is kept; a clip's is redrawn, but cheaply. */
+const BLUR_W = 136;
+const BLUR_H = Math.round((BLUR_W * V.H) / V.W);
+const washes = new WeakMap();
+let scratch = null;
+
+function backdrop(ctx, slide) {
+  const live = slide.kind === 'video';
+  let wash = live ? null : washes.get(slide.el);
+
+  if (!wash) {
+    if (!scratch) {
+      scratch = document.createElement('canvas');
+      scratch.width = BLUR_W; scratch.height = BLUR_H;
+    }
+    const s = scratch.getContext('2d');
+    s.clearRect(0, 0, BLUR_W, BLUR_H);
+    s.filter = 'blur(6px) brightness(0.42)';       // 48px at full size, scaled down
+    cover(s, slide.el, -8, -8, BLUR_W + 16, BLUR_H + 16, 1.06);
+    s.filter = 'none';
+    if (live) { ctx.drawImage(scratch, 0, 0, V.W, V.H); return; }
+    // Keep the still's wash: it cannot change, and it is the same every frame.
+    wash = document.createElement('canvas');
+    wash.width = BLUR_W; wash.height = BLUR_H;
+    wash.getContext('2d').drawImage(scratch, 0, 0);
+    washes.set(slide.el, wash);
+  }
+  ctx.drawImage(wash, 0, 0, V.W, V.H);
 }
 
 function cover(ctx, el, x, y, w, h, zoom = 1) {
@@ -332,6 +362,20 @@ export function planTimeline(slides, opts = {}) {
   for (const span of spans) { starts.push(at); at += span; }   // measured from the body's start
 
   return { fitted, spans, starts, body, intro, outro, total: intro + body + outro };
+}
+
+/* Which slides are on screen at time `t`, and how far into each — the same
+   predicate drawFrame paints by, exported so the offline exporter can put every
+   clip on its exact frame before drawing. */
+export function framesOnScreen(slides, opts, t) {
+  const plan = planTimeline(slides, opts);
+  if (!slides.length) return [];
+  const fade = opts.transition === 'cut' ? 0 : (opts.fade ?? 0.6);
+  const st = Math.max(0, Math.min(t - plan.intro, plan.body));
+  const { i, local } = slideAt(plan, st);
+  const out = [{ i, local }];
+  if (slides[i + 1] && fade > 0 && local > plan.spans[i] - fade) out.push({ i: i + 1, local: 0 });
+  return out;
 }
 
 /* Which slide is on screen `st` seconds into the body, and how far into it. */
