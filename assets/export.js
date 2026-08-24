@@ -18,6 +18,7 @@ const VIDEO_CODEC = 'avc1.4d0028';     // H.264 Main, level 4.0 — 1080x1920 at
 const AUDIO_CODEC = 'mp4a.40.2';       // AAC-LC
 const SAMPLE_RATE = 48000;
 const AUDIO_FADE = 0.12;               // seconds, so a clip does not click in or out
+const FRAME_PICK = 0.3;                // where inside a source frame to sample
 
 export function canExportOffline() {
   return typeof VideoEncoder !== 'undefined' && typeof VideoFrame !== 'undefined' &&
@@ -173,11 +174,16 @@ export async function exportVideo(canvas, rawSlides, opts, onProgress, shouldSto
         // Land in the middle of a source frame, never on its edge: a seek to a
         // boundary can resolve either side of it, and that alone repeated a
         // third of the frames of a 30fps clip.
-        // The epsilon matters: f/25*25 can come back as 1.9999999999999998,
-        // and flooring that picks the frame before the right one.
+        // Ask for a point inside the source frame, not its edge. Not the
+        // middle either: a source frame's real boundary sits a little later
+        // than its nominal time, so the middle tips over into the next frame
+        // once a second on 25fps footage. Sweeping the offset against clips of
+        // known rate, 0.2-0.35 hits every frame at 24, 25, 30 and 60fps; the
+        // middle misses. The epsilon is for f/25*25 coming back as
+        // 1.9999999999999998, which would floor to the frame before.
         want = slide.fps > 0
-          ? (Math.floor(want * slide.fps + 1e-4) + 0.5) / slide.fps
-          : want + 0.5 / fps;
+          ? (Math.floor(want * slide.fps + 1e-4) + FRAME_PICK) / slide.fps
+          : want + FRAME_PICK / fps;
         await seekTo(slide.el, want);
       }
     }
