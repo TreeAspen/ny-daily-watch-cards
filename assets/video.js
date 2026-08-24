@@ -53,21 +53,47 @@ const dims = (el) => ({
 export const MOTIONS = ['none', 'in', 'out', 'alternate', 'drift'];
 export const TRANSITIONS = ['crossfade', 'cut', 'black', 'push'];
 
-const TRAVEL = 0.055;   // how far a push/pull moves, as a fraction of size
+/* Motion is a rate, not a distance. Giving every slide the same 5.5% of travel
+   however long it lasts meant a long slide crawled: 0.2px a frame, under what
+   8-bit pixels can even represent, so frames came out identical and the picture
+   read as juddering. A fixed rate moves the same amount per frame whatever the
+   slide's length; the cap keeps a long one from wandering too far. */
+const PUSH_RATE = 0.018;   // zoom per second — about 0.65px a frame at 1080 wide
+const PUSH_CAP = 0.16;
+const DRIFT_RATE = 12;     // px per second
+const DRIFT_CAP = 90;
+const DRIFT_ZOOM = 1.06;   // headroom, so the drift never exposes an edge
 
-/* The transform for slide `i` at progress `k` (0→1 across its own time). */
-function motionAt(kind, i, k) {
-  const e = ease(Math.max(0, Math.min(1, k)));
+/* The transform for slide `i` at progress `k` (0→1 across its own time).
+
+   Deliberately linear. An eased push spends its first and last moments moving
+   so slowly that consecutive frames land on identical pixels — the picture
+   sticks, then goes, and that reads as dropped frames even though every frame
+   is there. A camera pushing at a constant rate does not do that, and it is
+   what a real one does anyway. Easing stays where it belongs: transitions. */
+function motionAt(kind, i, k, span = 8, footage = false) {
+  // Footage already moves. A slow zoom laid over it fights the shot and, on a
+  // long clip, crawls slowly enough to judder.
+  if (footage) return { zoom: 1, dy: 0, peak: 1 };
+  const e = Math.max(0, Math.min(1, k));
+  const travel = Math.min(PUSH_CAP, PUSH_RATE * span);
+  // `peak` is the largest this motion ever scales to. A picture that overflows
+  // the frame can be pushed past 1 and only loses overflow; a card sitting
+  // inside the frame would lose its own margins, so drawSlide divides by peak
+  // and the same move lands as a push up to full width instead of past it.
   switch (kind) {
-    case 'in': return { zoom: 1 + TRAVEL * e, dy: 0 };
-    case 'out': return { zoom: 1 + TRAVEL * (1 - e), dy: 0 };
+    case 'in': return { zoom: 1 + travel * e, dy: 0, peak: 1 + travel };
+    case 'out': return { zoom: 1 + travel * (1 - e), dy: 0, peak: 1 + travel };
     // Alternating keeps a long reel from feeling like one repeated move.
     case 'alternate': return i % 2
-      ? { zoom: 1 + TRAVEL * (1 - e), dy: 0 }
-      : { zoom: 1 + TRAVEL * e, dy: 0 };
-    // A little zoom is held back so the drift never exposes an edge.
-    case 'drift': return { zoom: 1 + TRAVEL * 0.7, dy: (0.5 - e) * 30 };
-    default: return { zoom: 1, dy: 0 };
+      ? { zoom: 1 + travel * (1 - e), dy: 0, peak: 1 + travel }
+      : { zoom: 1 + travel * e, dy: 0, peak: 1 + travel };
+    case 'drift': return {
+      zoom: DRIFT_ZOOM,
+      dy: (0.5 - e) * Math.min(DRIFT_CAP, DRIFT_RATE * span),
+      peak: DRIFT_ZOOM,
+    };
+    default: return { zoom: 1, dy: 0, peak: 1 };
   }
 }
 
@@ -94,7 +120,10 @@ function drawSlide(ctx, slide, m, alpha) {
   } else {
     backdrop(ctx, slide);
 
-    const w = V.W * zoom, h = fullH * zoom;
+    // Normalised against the motion's peak: a boxed slide ends at full width
+    // rather than being scaled past it and losing its own margins.
+    const k = zoom / (m.peak || 1);
+    const w = V.W * k, h = fullH * k;
     const safeH = V.H - SAFE.top - SAFE.bottom;
     const y = Math.max(0, Math.min(V.H - h, SAFE.top + (safeH - h) / 2)) + dy;
     ctx.drawImage(el, (V.W - w) / 2, y, w, h);
@@ -532,7 +561,11 @@ export function drawFrame(ctx, rawSlides, t, opts) {
 
   const plan = planTimeline(slides, opts);
   const body = plan.body;
-  const m = (i, local) => motionAt(motion, i, local / plan.spans[i]);
+  // A slide's motion clock starts the moment it appears — which is when its
+  // fade-in begins, not when the fade ends. Holding it at zero through the
+  // crossfade froze every entrance for the length of the fade.
+  const m = (i, since) => motionAt(motion, i, since / (plan.spans[i] + fade),
+    plan.spans[i], slides[i] && slides[i].kind === 'video');
 
   // The outro's own clock starts while the last slide is still fading out, so
   // the animation does not restart when the crossfade finishes.
@@ -543,7 +576,7 @@ export function drawFrame(ctx, rawSlides, t, opts) {
     drawIntro(ctx, clamp01(t / intro), brand);
     const rem = intro - t;
     if (rem < fade) {
-      drawSlide(ctx, slides[0], m(0, 0), 1 - rem / fade);
+      drawSlide(ctx, slides[0], m(0, fade - rem), 1 - rem / fade);
       if (subs) drawSubtitle(ctx, cueAt(slides[0], 0, plan.spans[0]), 1 - rem / fade);
     }
     return;
@@ -559,29 +592,29 @@ export function drawFrame(ctx, rawSlides, t, opts) {
   if (turning && transition === 'black') {
     // Out to black, then in from black — one half of the window each.
     if (u < 0.5) {
-      drawSlide(ctx, slides[i], m(i, local), 1);
+      drawSlide(ctx, slides[i], m(i, local + fade), 1);
       ctx.save();
       ctx.globalAlpha = u * 2;
       ctx.fillStyle = INK; ctx.fillRect(0, 0, V.W, V.H);
       ctx.restore();
       if (subs) drawSubtitle(ctx, cueAt(slides[i], local, per), 1 - u * 2);
     } else {
-      drawSlide(ctx, next, m(i + 1, 0), (u - 0.5) * 2);
+      drawSlide(ctx, next, m(i + 1, (u - 0.5) * 2 * fade), (u - 0.5) * 2);
       if (subs) drawSubtitle(ctx, cueAt(next, 0, plan.spans[i + 1]), (u - 0.5) * 2);
     }
   } else if (turning && transition === 'push') {
     const e = ease(u);
     ctx.save(); ctx.translate(0, -V.H * e);
-    drawSlide(ctx, slides[i], m(i, local), 1);
+    drawSlide(ctx, slides[i], m(i, local + fade), 1);
     if (subs) drawSubtitle(ctx, cueAt(slides[i], local, per), 1);
     ctx.restore();
     ctx.save(); ctx.translate(0, V.H * (1 - e));
-    drawSlide(ctx, next, m(i + 1, 0), 1);
+    drawSlide(ctx, next, m(i + 1, e * fade), 1);
     if (subs) drawSubtitle(ctx, cueAt(next, 0, plan.spans[i + 1]), 1);
     ctx.restore();
   } else {
-    drawSlide(ctx, slides[i], m(i, local), 1);
-    if (turning) drawSlide(ctx, next, m(i + 1, 0), u);
+    drawSlide(ctx, slides[i], m(i, local + fade), 1);
+    if (turning) drawSlide(ctx, next, m(i + 1, u * fade), u);
     if (subs) {
       const here = cueAt(slides[i], local, per);
       const there = turning ? cueAt(next, 0, plan.spans[i + 1]) : '';
