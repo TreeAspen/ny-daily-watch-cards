@@ -1334,7 +1334,6 @@ $('v-render').addEventListener('click', async () => {
   $('v-prog').hidden = false;
   const o = videoOpts();
   const runFor = plannedTotal();
-  const frames = Math.round(runFor * V.fps);
   const started = performance.now();
   // Encode offline where the browser can; fall back to capturing the canvas in
   // real time where it cannot.
@@ -1343,10 +1342,16 @@ $('v-render').addEventListener('click', async () => {
   try {
     const { blob, ext, mime, cancelled } = await run(
       $('v-canvas'), video.slides, o,
-      (p) => {
+      // The exporter knows how many frames it will write — with footage passed
+      // through, that is not the running time times a frame rate.
+      (p, at) => {
         $('v-prog').value = p;
-        if (offline) status($('v-status'), 'encoding', '', Math.round(p * frames), frames);
-        else status($('v-status'), 'recording', '', (p * runFor).toFixed(1), runFor.toFixed(0));
+        if (at && at.kind === 'frames') {
+          status($('v-status'), 'encoding', '', Math.round(at.done), Math.round(at.total));
+        } else {
+          const secs = at ? at.done : p * runFor;
+          status($('v-status'), 'recording', '', secs.toFixed(1), runFor.toFixed(0));
+        }
       },
       () => !video.recording,
     );

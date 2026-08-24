@@ -214,11 +214,27 @@ export async function exportVideo(canvas, rawSlides, opts, onProgress, shouldSto
   }
   if (at < plan.total - 1e-6) segments.push({ kind: 'grid', from: at, to: plan.total });
 
+  /* How many frames this export will really write. Not plan.total * fps: a
+     passed-through clip contributes however many frames it happens to have,
+     which for variable-rate footage is not its length times any rate. Counting
+     it properly is what keeps the progress honest. */
+  let gridFrames = 0;
+  for (const seg of segments) {
+    if (seg.kind === 'grid') {
+      gridFrames += Math.ceil(seg.to * fps - 1e-6) - Math.ceil(seg.from * fps - 1e-6);
+    }
+  }
+  const clipFrames = [...straight.keys()]
+    .reduce((sum, i) => sum + tracks.get(i).samples.length, 0);
+  const expected = Math.max(1, gridFrames + clipFrames);
+
   let cancelled = false;
   let done = 0;
   const step = () => {
     done++;
-    if (onProgress && done % 4 === 0) onProgress(Math.min(0.99, done / totalFrames));
+    if (onProgress && done % 4 === 0) {
+      onProgress(Math.min(0.99, done / expected), { done, total: expected, kind: 'frames' });
+    }
   };
 
   for (const seg of segments) {
@@ -343,7 +359,7 @@ export async function exportVideo(canvas, rawSlides, opts, onProgress, shouldSto
   venc.close();
   muxer.finalize();
   if (failed) throw failed;
-  if (onProgress) onProgress(1);
+  if (onProgress) onProgress(1, { done: expected, total: expected, kind: 'frames' });
 
   return {
     blob: new Blob([target.buffer], { type: 'video/mp4' }),
@@ -351,7 +367,9 @@ export async function exportVideo(canvas, rawSlides, opts, onProgress, shouldSto
     ext: 'mp4',
     cancelled: false,
     audio: !!audioBuffer,
-    frames: totalFrames,
+    frames: expected,
+    gridFrames,
+    clipFrames,
     passedThrough: straight.size,
   };
 }

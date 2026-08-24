@@ -714,7 +714,7 @@ export async function recordVideo(canvas, rawSlides, opts, onProgress, shouldSto
       if (t >= runFor) { res(); return; }
       syncClips(slides, t, opts, { live: true, gains: audio ? audio.gains : null });
       drawFrame(ctx, slides, t, opts);
-      onProgress?.(t / runFor);
+      onProgress?.(t / runFor, { done: t, total: runFor, kind: 'seconds' });
       requestAnimationFrame(tick);
     };
     requestAnimationFrame(tick);
@@ -736,6 +736,6 @@ export async function recordVideo(canvas, rawSlides, opts, onProgress, shouldSto
   tracks.forEach((tr) => tr.stop());
   resetClips(slides);
   teardownAudio(audio, slides);
-  onProgress?.(1);
+  onProgress?.(1, { done: runFor, total: runFor, kind: 'seconds' });
   return { blob: await done, mime, ext: extFor(mime), cancelled: false, audio: !!audio };
 }
