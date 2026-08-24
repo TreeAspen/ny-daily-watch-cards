@@ -13,6 +13,7 @@
 
 import { Muxer, ArrayBufferTarget } from './mp4-muxer.mjs';
 import { asSlide, planTimeline, framesOnScreen, drawFrame, fpsFor, V } from './video.js';
+import { readVideoTrack, decodeTrack } from './demux.js';
 
 const VIDEO_CODEC = 'avc1.4d0028';     // H.264 Main, level 4.0 — 1080x1920 at 30fps
 const AUDIO_CODEC = 'mp4a.40.2';       // AAC-LC
@@ -123,6 +124,34 @@ function drain(encoder, limit) {
   });
 }
 
+/* A slide can pass its own frames straight through when it is a clip that plays
+   once at its own length: nothing is being asked of it that would require
+   inventing frames at other moments. That is the case the long-footage cut is
+   made of, and it is the only way to be exactly faithful to variable-rate
+   footage, which has no fixed grid to resample onto in the first place. */
+function passthroughIndex(slides, plan) {
+  const out = new Map();
+  slides.forEach((slide, i) => {
+    if (slide.kind !== 'video' || !slide.file) return;
+    const dur = slide.el.duration || 0;
+    if (!dur) return;
+    // Looping or trimming means frames are wanted at times the clip has none.
+    if (Math.abs(plan.spans[i] - dur) > 0.05) return;
+    out.set(i, { start: plan.intro + plan.starts[i], span: plan.spans[i] });
+  });
+  return out;
+}
+
+/* Draw a decoded frame the way drawFrame would: full width, wash behind if it
+   is not tall enough to fill, and the subtitle over it. Skipped entirely when
+   the frame already fills the frame and carries no words — then its pixels go
+   to the encoder untouched. */
+function needsCompositing(slide, track) {
+  if (String(slide.sub || '').trim()) return true;
+  const aspect = track.width / track.height;
+  return Math.abs(aspect - V.W / V.H) > 0.02;
+}
+
 export async function exportVideo(canvas, rawSlides, opts, onProgress, shouldStop) {
   const slides = rawSlides.map(asSlide);
   const plan = planTimeline(slides, opts);
@@ -138,7 +167,11 @@ export async function exportVideo(canvas, rawSlides, opts, onProgress, shouldSto
   const muxer = new Muxer({
     target,
     fastStart: 'in-memory',
-    video: { codec: 'avc', width: V.W, height: V.H, frameRate: fps },
+    // No frameRate here on purpose: the muxer uses it as the track's timescale,
+    // so declaring 30 would quantise every timestamp to 1/30s and collapse the
+    // timing of variable-rate footage. Its fallback, 57600, divides evenly by
+    // every common frame rate and leaves 17us of resolution.
+    video: { codec: 'avc', width: V.W, height: V.H },
     ...(audioBuffer
       ? { audio: { codec: 'aac', numberOfChannels: 2, sampleRate: SAMPLE_RATE } }
       : {}),
@@ -158,47 +191,112 @@ export async function exportVideo(canvas, rawSlides, opts, onProgress, shouldSto
   const ctx = canvas.getContext('2d');
   canvas.width = V.W; canvas.height = V.H;
 
-  let cancelled = false;
-  for (let f = 0; f < totalFrames; f++) {
-    if (shouldStop && shouldStop()) { cancelled = true; break; }
-    if (failed) break;
-    const t = f / fps;
+  // Which clips will be written from their own frames rather than sampled.
+  const straight = passthroughIndex(slides, plan);
+  const tracks = new Map();
+  for (const [i] of straight) {
+    try {
+      const track = await readVideoTrack(slides[i].file);
+      if (track && track.samples.length) tracks.set(i, track);
+    } catch (_) { /* this one gets sampled like any other */ }
+  }
+  for (const i of [...straight.keys()]) if (!tracks.has(i)) straight.delete(i);
 
-    // Put every clip that is on screen at this instant on its exact frame
-    // before anything is drawn.
-    for (const { i, local } of framesOnScreen(slides, opts, t)) {
-      const slide = slides[i];
-      if (slide && slide.kind === 'video') {
-        const dur = slide.el.duration || 0;
-        let want = dur ? local % dur : 0;
-        // Land in the middle of a source frame, never on its edge: a seek to a
-        // boundary can resolve either side of it, and that alone repeated a
-        // third of the frames of a 30fps clip.
-        // Ask for a point inside the source frame, not its edge. Not the
-        // middle either: a source frame's real boundary sits a little later
-        // than its nominal time, so the middle tips over into the next frame
-        // once a second on 25fps footage. Sweeping the offset against clips of
-        // known rate, 0.2-0.35 hits every frame at 24, 25, 30 and 60fps; the
-        // middle misses. The epsilon is for f/25*25 coming back as
-        // 1.9999999999999998, which would floor to the frame before.
-        want = slide.fps > 0
-          ? (Math.floor(want * slide.fps + 1e-4) + FRAME_PICK) / slide.fps
-          : want + FRAME_PICK / fps;
-        await seekTo(slide.el, want);
+  /* The timeline in order: stretches the grid draws, and stretches a clip
+     writes for itself. Chunks have to reach the muxer with rising timestamps,
+     so the two are interleaved here rather than run one after the other. */
+  const segments = [];
+  let at = 0;
+  for (const [i, window] of [...straight.entries()].sort((a, b) => a[1].start - b[1].start)) {
+    if (window.start > at + 1e-6) segments.push({ kind: 'grid', from: at, to: window.start });
+    segments.push({ kind: 'clip', i, from: window.start, to: window.start + window.span });
+    at = window.start + window.span;
+  }
+  if (at < plan.total - 1e-6) segments.push({ kind: 'grid', from: at, to: plan.total });
+
+  let cancelled = false;
+  let done = 0;
+  const step = () => {
+    done++;
+    if (onProgress && done % 4 === 0) onProgress(Math.min(0.99, done / totalFrames));
+  };
+
+  for (const seg of segments) {
+    if (cancelled || failed) break;
+
+    if (seg.kind === 'grid') {
+      const first = Math.ceil(seg.from * fps - 1e-6);
+      const last = Math.ceil(seg.to * fps - 1e-6);
+      for (let f = first; f < last; f++) {
+        if (shouldStop && shouldStop()) { cancelled = true; break; }
+        if (failed) break;
+        const t = f / fps;
+
+        // Put every clip on screen at this instant on its own frame first.
+        for (const { i, local } of framesOnScreen(slides, opts, t)) {
+          const slide = slides[i];
+          if (slide && slide.kind === 'video') {
+            const dur = slide.el.duration || 0;
+            let want = dur ? local % dur : 0;
+            // Ask for a point inside the source frame, not its edge. Not the
+            // middle either: a source frame's real boundary sits a little later
+            // than its nominal time, so the middle tips into the next frame once
+            // a second on 25fps footage. Sweeping the offset against clips of
+            // known rate, 0.2-0.35 hits every frame at 24, 25, 30, 50 and 60fps.
+            // The epsilon is for f/25*25 coming back as 1.9999999999999998.
+            want = slide.fps > 0
+              ? (Math.floor(want * slide.fps + 1e-4) + FRAME_PICK) / slide.fps
+              : want + FRAME_PICK / fps;
+            await seekTo(slide.el, want);
+          }
+        }
+
+        drawFrame(ctx, slides, t, opts);
+        const frame = new VideoFrame(canvas, {
+          timestamp: Math.round((f * 1e6) / fps),
+          duration: Math.round(1e6 / fps),
+        });
+        venc.encode(frame, { keyFrame: f % (fps * 2) === 0 });
+        frame.close();
+        await drain(venc, 6);
+        step();
       }
+      continue;
     }
 
-    drawFrame(ctx, slides, t, opts);
-
-    const frame = new VideoFrame(canvas, {
-      timestamp: Math.round((f * 1e6) / fps),
-      duration: Math.round(1e6 / fps),
-    });
-    venc.encode(frame, { keyFrame: f % (fps * 2) === 0 });
-    frame.close();
-
-    await drain(venc, 6);
-    if (onProgress && f % 3 === 0) onProgress(f / totalFrames);
+    // A clip writing its own frames, at the timestamps they carry in the file.
+    const slide = slides[seg.i];
+    const track = tracks.get(seg.i);
+    const composite = needsCompositing(slide, track);
+    const offset = Math.round(seg.from * 1e6);
+    let n = 0;
+    try {
+      await decodeTrack(track, async (frame) => {
+        if (cancelled || failed) return;
+        const ts = offset + frame.timestamp;
+        let out;
+        if (composite) {
+          // Draw the frame we just decoded, not whatever the <video> element
+          // happens to be showing: drawSlide reads slide.el, so it is lent the
+          // decoded frame for the length of the call.
+          const held = slide.el;
+          slide.el = frame;
+          try {
+            drawFrame(ctx, slides, seg.from + frame.timestamp / 1e6, opts);
+          } finally { slide.el = held; }
+          out = new VideoFrame(canvas, { timestamp: ts, duration: frame.duration || undefined });
+        } else {
+          // Untouched: the decoded picture goes straight to the encoder.
+          out = new VideoFrame(frame, { timestamp: ts, duration: frame.duration || undefined });
+        }
+        venc.encode(out, { keyFrame: n % (fps * 2) === 0 });
+        out.close();
+        n++;
+        await drain(venc, 6);
+        step();
+      }, () => cancelled || !!failed || !!(shouldStop && shouldStop()));
+    } catch (_) { /* a clip that will not decode leaves a gap rather than a crash */ }
+    if (shouldStop && shouldStop()) cancelled = true;
   }
 
   if (cancelled || failed) {
@@ -254,5 +352,6 @@ export async function exportVideo(canvas, rawSlides, opts, onProgress, shouldSto
     cancelled: false,
     audio: !!audioBuffer,
     frames: totalFrames,
+    passedThrough: straight.size,
   };
 }

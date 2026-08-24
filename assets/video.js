@@ -45,8 +45,8 @@ export const isVideo = (el) =>
 /* A <video> reports its frame size on videoWidth/videoHeight; width/height are
    the layout attributes and are usually zero. */
 const dims = (el) => ({
-  w: el.videoWidth || el.naturalWidth || el.width,
-  h: el.videoHeight || el.naturalHeight || el.height,
+  w: el.videoWidth || el.naturalWidth || el.displayWidth || el.codedWidth || el.width,
+  h: el.videoHeight || el.naturalHeight || el.displayHeight || el.codedHeight || el.height,
 });
 
 /* ---- motion and transitions ------------------------------------------ */
@@ -674,7 +674,9 @@ export function drawFrame(ctx, rawSlides, t, opts) {
   }
 
   if (outro) {
-    const a = clamp01((t - outroAt) / fade);
+    // With no fade the outro simply starts; dividing by zero would make the
+    // alpha NaN and let one frame of the last slide through.
+    const a = fade > 0 ? clamp01((t - outroAt) / fade) : (t >= outroAt ? 1 : 0);
     if (a > 0) drawOutro(ctx, outroP, brand, a);
   }
 }

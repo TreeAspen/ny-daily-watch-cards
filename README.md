@@ -112,7 +112,11 @@ Nothing is uploaded — the file never leaves the page — but opening and decod
 
 **Subtitles** are typed under each thumbnail, **one line per cue**, and burned into the frame in Montserrat bold, each line on its own backing pill — over footage nobody controls, a scrim is a guess and a pill is a guarantee. A slide with several cues shows them in turn across its slot, sharing the time out by length so a long line gets longer to be read, with a floor of 1.2s so a short one never flashes past; the strip reports the count and the shortest span, in red if the floor could not be met. Cues hard-cut into each other, because two pill-backed lines crossfading would just stack two dark boxes. They hold one fixed position for the whole cut rather than moving with the picture, which also means a subtitle on a full card slide lands over the card's own footer: put subtitles on photos and clips.
 
-The export takes its **frame rate from the footage** — the longest clip sets it, a still-only reel stays at 30 — so 24, 25, 30 and 60fps sources all map one source frame to one output frame instead of being resampled onto a grid that does not divide evenly. Each clip's own rate is measured as it comes in, and every frame is sampled 30% of the way into the source frame rather than at its edge or its middle — a source frame's real boundary sits a little later than its nominal time, so the middle tips into the next frame once a second on 25fps footage. Sweeping that offset against clips of known rate, 0.2–0.35 hits every frame at 24, 25, 30, 50 and 60fps. End to end, repeated frames went from 17.5 / 15 / 30.8 / 0 per cent (24 / 25 / 30 / 60fps) to 1.1 / 0 / 0 / 0.5.
+**Footage is not re-timed.** A clip that plays once at its own length is demuxed with a vendored [mp4box.js](assets/mp4box.min.js) (BSD-3-Clause, loaded only when a clip needs it), decoded through WebCodecs, and written out **frame for frame at its own timestamps** — see [assets/demux.js](assets/demux.js). Whatever it was shot at, fixed rate or variable, is what comes out; nothing is sampled onto a grid, because resampling is what judder is. Only the opening title, the end card and any still slides are drawn on a grid, and the two are interleaved in timeline order so timestamps rise monotonically.
+
+Verified by building clips whose every frame states its own number in pixels, exporting, then demuxing the result and reading the numbers back: 90 source frames arrive as 90 output frames, numbered 1 to 90 in order, none repeated, none skipped, no duplicated timestamps — for constant-rate footage, for variable-rate footage, and for a clip carrying burned-in subtitles.
+
+Where a clip loops or is trimmed to fit a slot, its frames are wanted at moments it has none, so that one is sampled instead: the rate then comes from the longest clip, and each frame is taken 30% of the way into the source frame rather than at its edge or its middle.
 
 Export composes every frame deliberately and hands it to a WebCodecs encoder — [assets/export.js](assets/export.js), muxed with the vendored [mp4-muxer](assets/mp4-muxer.mjs) (MIT). Nothing is filmed off a clock, so a backgrounded tab cannot drop frames, and the export usually finishes in less time than the video runs (a 30s cut measured 21s of stills, 27s with a clip, in software rendering with no GPU). The clip audio for the whole timeline is rendered in one offline pass and encoded as AAC alongside.
 
@@ -232,7 +236,11 @@ Both check pages take `?case=stress`.
 
 **字幕**在每张缩略图下面直接输入，**每行一条**，用 Montserrat 粗体烧录进画面，每行带一块深色底——素材千变万化，渐变遮罩只是猜测，底块才是保证。一张素材写多条时，它们会在这张的时段里依次出现，时间按字数分配（长句读起来慢，就给它更长），每条至少 1.2 秒，短句不会一闪而过；缩略图下面会显示条数和最短那条的秒数，凑不够 1.2 秒时标红。条与条之间是硬切，因为两块半透明底叠在一起只会更糊。字幕位置全片固定，不会跟着画面跳动；也因此，给整张卡片配字幕会压到卡片自己的页脚，字幕更适合配照片和视频片段。
 
-导出的**帧率跟随素材**——由最长的那段片段决定，纯静态图仍是 30fps——所以 24 / 25 / 30 / 60fps 的片源都是一帧对一帧，而不是重采样到一个除不尽的网格上。每段片段进来时会实测自己的帧率，取帧位置落在源帧的 30% 处——既不是边界也不是正中：源帧的实际边界比标称时间略晚，取正中会在 25fps 素材上每秒越界一次。对已知帧率的测试片扫描这个偏移，0.2–0.35 在 24 / 25 / 30 / 50 / 60fps 下都能逐帧命中。端到端实测，重复帧从 17.5 / 15 / 30.8 / 0 %（24 / 25 / 30 / 60fps）降到 1.1 / 0 / 0 / 0.5 %。
+**片段不会被重新计时**。按自身长度完整播放的片段，会用随项目收录的 [mp4box.js](assets/mp4box.min.js)（BSD-3-Clause，只在真正需要时才加载）解封装、经 WebCodecs 解码，然后**用它自己的帧、自己的时间戳逐帧写出**——见 [assets/demux.js](assets/demux.js)。拍的时候是什么时序，出来就是什么时序，固定帧率和可变帧率都一样，不做任何重采样——因为重采样正是抖动的来源。只有片头、片尾和静态图是按网格绘制的，两者按时间轴顺序交错写入，保证时间戳单调递增。
+
+验证方式：造一批"每一帧用像素写明自己是第几帧"的片段，导出后再把结果解封装、逐帧读回编号——90 帧源出来就是 90 帧，编号 1 到 90 严格有序，无重复、无跳帧、无重复时间戳；固定帧率、可变帧率、以及带烧录字幕的片段三种情况都是如此。
+
+如果片段需要循环或被截断以适配时段（也就是要在它没有画面的时刻取帧），才会退回采样方式：此时帧率取自最长的片段，取帧位置落在源帧的 30% 处——不是边界也不是正中。
 
 导出是把每一帧单独画好、交给 WebCodecs 编码器——见 [assets/export.js](assets/export.js)，用随项目收录的 [mp4-muxer](assets/mp4-muxer.mjs)（MIT）封装。全程不看墙钟，所以切到后台也不会掉帧，而且通常比片长更快完成（无 GPU 的软件渲染下实测：30 秒的纯静态图片子用 21 秒，带视频片段用 27 秒）。片段的音频会先离线渲染成整条时间轴的一条音轨，再按 AAC 编码一起封装。
 
