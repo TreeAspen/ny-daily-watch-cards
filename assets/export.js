@@ -167,6 +167,11 @@ export async function exportVideo(canvas, rawSlides, opts, onProgress, shouldSto
   const muxer = new Muxer({
     target,
     fastStart: 'in-memory',
+    // A clip's first frame does not necessarily present at zero — B-frame
+    // reorder puts it a frame or two in — and the strict default throws inside
+    // the encoder's output callback when it sees that, which loses the whole
+    // track silently. Timestamps are normalised below; this is the backstop.
+    firstTimestampBehavior: 'offset',
     // No frameRate here on purpose: the muxer uses it as the track's timescale,
     // so declaring 30 would quantise every timestamp to 1/30s and collapse the
     // timing of variable-rate footage. Its fallback, 57600, divides evenly by
@@ -285,7 +290,11 @@ export async function exportVideo(canvas, rawSlides, opts, onProgress, shouldSto
     const slide = slides[seg.i];
     const track = tracks.get(seg.i);
     const composite = needsCompositing(slide, track);
-    const offset = Math.round(seg.from * 1e6);
+    // Where the clip's own timeline starts. Presentation timestamps do not
+    // begin at zero when there are B-frames, and leaving that in would push the
+    // whole clip late inside its slot and away from its own audio.
+    const base = track.samples.reduce((min, s2) => Math.min(min, s2.timestamp), Infinity) || 0;
+    const offset = Math.round(seg.from * 1e6) - Math.round(base);
     let n = 0;
     try {
       await decodeTrack(track, async (frame) => {

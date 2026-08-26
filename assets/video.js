@@ -428,8 +428,15 @@ export function planTimeline(slides, opts = {}) {
     const still = opts.stillSecs || STILL_SECS;
     spans = slides.map((s) => durOf(s) || still);
   } else {
-    const room = Math.max(0.2, (opts.total || 30) - intro - outro);
-    spans = slides.map(() => room / (slides.length || 1));
+    // A fixed slide — the opening and closing titles are the ones that matter —
+    // always runs its own length whatever the running time is set to. What is
+    // left over is what the rest of the slides share.
+    const fixedFor = (s) => (s.fixed ? durOf(s) || 0 : 0);
+    const spent = slides.reduce((sum, s) => sum + fixedFor(s), 0);
+    const flexible = slides.filter((s) => !s.fixed).length;
+    const room = Math.max(0.2, (opts.total || 30) - intro - outro - spent);
+    const each = flexible ? room / flexible : 0;
+    spans = slides.map((s) => (s.fixed ? fixedFor(s) : each));
   }
 
   const body = spans.reduce((a, b) => a + b, 0) || 0.2;
@@ -461,6 +468,42 @@ function slideAt(plan, st) {
     if (st < plan.starts[i] + plan.spans[i]) return { i, local: st - plan.starts[i] };
   }
   return { i: n - 1, local: plan.spans[n - 1] };
+}
+
+/* ---- the title clips --------------------------------------------------- */
+/* The opening and closing titles used to be drawn here, frame by frame. They
+   are now finished pieces of motion graphics that ship with the tool, so they
+   go through the timeline as ordinary clips: their own frames, their own sound,
+   passed through untouched like any other footage. `fixed` keeps them at their
+   own length however long the reel is set to. */
+const TITLE_FILES = { intro: 'intro.mp4', outro: 'outro.mp4' };
+let titlesPromise = null;
+
+async function loadTitle(name) {
+  const url = new URL('./' + name, import.meta.url).href;
+  const blob = await (await fetch(url)).blob();
+  const file = new File([blob], name, { type: 'video/mp4' });
+  const el = document.createElement('video');
+  el.preload = 'auto';
+  el.muted = true;
+  el.playsInline = true;
+  el.src = URL.createObjectURL(blob);
+  await new Promise((ok, no) => {
+    el.onloadeddata = () => (el.videoWidth ? ok() : no(new Error('title undecodable')));
+    el.onerror = () => no(new Error('title'));
+    setTimeout(() => no(new Error('title timeout')), 30000);
+  });
+  return { el, file, kind: 'video', sub: '', fixed: true,
+    dur: el.duration || 0, fps: await measureFps(el) };
+}
+
+export function loadTitles() {
+  if (!titlesPromise) {
+    titlesPromise = Promise.all([loadTitle(TITLE_FILES.intro), loadTitle(TITLE_FILES.outro)])
+      .then(([intro, outro]) => ({ intro, outro }))
+      .catch((e) => { titlesPromise = null; throw e; });
+  }
+  return titlesPromise;
 }
 
 /* ---- cues -------------------------------------------------------------- */

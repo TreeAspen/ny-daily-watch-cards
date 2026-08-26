@@ -164,7 +164,7 @@
 import { renderPhotoCard, renderDarkCard, renderPoster, SAFE, FONT_SPECS, loadImage }
   from './assets/render.js';
 import { renderChart, BRAND_PALETTE } from './assets/chart.js';
-import { drawFrame, drawIntro, drawOutro, V } from './assets/video.js';
+import { drawFrame, loadTitles, V } from './assets/video.js';
 
 const $ = (id) => document.getElementById(id);
 const LANG_STORE = 'ndw-cards-lang';
@@ -257,8 +257,8 @@ const STR = {
       ['Total seconds', 'Split evenly across the slides after the title and end card are taken off. Locked, and computed for you, once a clip runs a minute or more'],
       ['Motion', 'Still · push in · pull out · alternating (the default) · drift up. It moves at a fixed rate, so a long slide travels further rather than slower, and footage is left alone — it already moves'],
       ['Transition', 'Crossfade · hard cut · through black · push up'],
-      ['Opening title', 'Two seconds: logo, masthead, gold rule, date'],
-      ['End card', 'Two and a half seconds: logo, READ MORE AT, the handle, LINK IN BIO'],
+      ['Opening title clip', 'The branded opening piece that ships with the tool. It runs its own length whatever the running time says'],
+      ['End clip', 'The branded closing piece, likewise at its own length'],
       ['Subtitle', 'Typed under each thumbnail, one line per cue. Burned in, Montserrat bold, in a fixed place all the way through'],
       ['Keep clip audio', 'Records the sound off video clips. Stills are silent either way'],
       ['Preview / Play', 'Runs the exact frames the export will write — check before spending the time'],
@@ -274,8 +274,8 @@ const STR = {
     capSafe45: ['4:5, no overlay', 'A feed post has no chrome over it, so the margins are even.'],
     capVidCard: ['A slide with a subtitle', 'Full width, blurred bands above and below — never pillarboxed. The subtitle holds one place all the way through.'],
     subDemo: 'Chips use just 2.4% of it.',
-    capVidIntro: ['Opening title', 'Logo, masthead, gold rule, date.'],
-    capVidOutro: ['End card', 'Where the reader is sent next.'],
+    capVidIntro: ['Opening title', 'The branded opening clip, wrapped into the cut like any other footage.'],
+    capVidOutro: ['End clip', 'The closing clip. Where the reader is sent next.'],
     chartCaps: {
       bar: ['Columns', 'A handful of categories. One series, one colour.'],
       hbar: ['Bars', 'Long labels, or more than six rows.'],
@@ -388,8 +388,8 @@ const STR = {
     capSafe45: ['4:5 没有遮挡', '普通帖子上面不会压 UI，所以四边留白是均匀的。'],
     capVidCard: ['带字幕的一张素材', '横向满屏，上下补模糊，不会两边留黑边。字幕位置全片固定。'],
     subDemo: '芯片只用掉其中的 2.4%。',
-    capVidIntro: ['片头', 'logo、刊名、金线、日期。'],
-    capVidOutro: ['片尾', '告诉读者接下来去哪。'],
+    capVidIntro: ['片头', '品牌片头素材，和其他素材一样接在时间轴上。'],
+    capVidOutro: ['片尾', '片尾素材，告诉读者接下来去哪。'],
     chartCaps: {
       bar: ['柱状图', '比较几个类别。单系列时所有柱子同一个颜色。'],
       hbar: ['条形图', '标签长，或者条目超过六个。'],
@@ -509,10 +509,22 @@ function fillFigs() {
       { total: 6, intro: 0, outro: 0, motion: 'none', transition: 'crossfade' });
     const c2 = figure(vd, 150, null, t('capVidIntro'));
     c2.width = V.W; c2.height = V.H;
-    drawIntro(c2.getContext('2d'), 1, { logo: logoImg, date: 'August 12, 2026' });
     const c3 = figure(vd, 150, null, t('capVidOutro'));
     c3.width = V.W; c3.height = V.H;
-    drawOutro(c3.getContext('2d'), 1, { logo: logoImg });
+    // A frame from each of the real title clips, so the guide shows what the
+    // tool will actually put on the front and back of the cut.
+    loadTitles().then(async (titles) => {
+      for (const [canvas, slide, at] of [[c2, titles.intro, 0.8], [c3, titles.outro, 0.9]]) {
+        const el = slide.el;
+        const want = Math.max(0, (el.duration || 1) * at - 0.05);
+        await new Promise((done) => {
+          el.onseeked = done;
+          try { el.currentTime = want; } catch (_) { done(); }
+          setTimeout(done, 2500);
+        });
+        canvas.getContext('2d').drawImage(el, 0, 0, V.W, V.H);
+      }
+    }).catch(() => { /* the figures simply stay dark */ });
   };
   slide.src = card.toDataURL();
 }
@@ -567,7 +579,7 @@ function drawTimeline() {
   const svg = $('svg-timeline');
   svg.innerHTML = '';
   svg.appendChild(el('rect', { x: 0, y: 0, width: 720, height: 180, rx: 10, fill: '#121212' }));
-  const total = 30, intro = 2, outro = 2.4;
+  const total = 30, intro = 10, outro = 10;
   const body = total - intro - outro;
   const per = body / 3;
   const X = 24, W = 672, k = W / total;

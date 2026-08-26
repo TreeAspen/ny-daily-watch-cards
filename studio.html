@@ -376,8 +376,8 @@ import { renderPhotoCard, renderDarkCard, renderPoster, POSTER_RATIOS, FONT_SPEC
 import { renderChart, RATIOS, CHART_TYPES, BRAND_PALETTE } from './assets/chart.js';
 import { validate } from './assets/validate_palette.js';
 import { exportVideo, offlineSupported } from './assets/export.js';
-import { drawFrame, drawIntro, recordVideo, pickMime, syncClips, resetClips, isVideo,
-  cuesOf, cueSpans, MIN_CUE, planTimeline, LONG_CLIP, STILL_SECS, measureFps,
+import { drawFrame, recordVideo, pickMime, syncClips, resetClips, isVideo,
+  cuesOf, cueSpans, MIN_CUE, planTimeline, LONG_CLIP, STILL_SECS, measureFps, loadTitles,
   MOTIONS, TRANSITIONS, V } from './assets/video.js';
 
 const $ = (id) => document.getElementById(id);
@@ -464,9 +464,10 @@ const STR = {
     subPlaceholder: 'subtitle… one line per cue',
     cueCount: (n, min) => `${n} cues · shortest ${min}s`,
     clipNote: (n) => `${n} clip${n > 1 ? 's' : ''} · each slide gets the same slot, and a clip loops if it is shorter`,
+    titleNote: (titles, total) => `titles ${titles} on top · ${total} in all`,
     fitted: (total, still) => `Fitted to the footage · ${total} in all. A clip of a minute or more plays in full, every clip runs at its own length, and a still holds ${still}s.`,
-    withIntro: 'Opening title',
-    withOutro: 'End card',
+    withIntro: 'Opening title clip',
+    withOutro: 'End clip',
     keepAudio: 'Keep clip audio',
     motionLabel: 'Motion',
     transLabel: 'Transition',
@@ -589,6 +590,7 @@ const STR = {
     subPlaceholder: '字幕…每行一条',
     cueCount: (n, min) => `${n} 条 · 最短 ${min} 秒`,
     clipNote: (n) => `${n} 段视频 · 每张素材分到的时长相同，片段短于时长会自动循环`,
+    titleNote: (titles, total) => `另加片头片尾 ${titles} · 全长 ${total}`,
     fitted: (total, still) => `已按素材自适应 · 全长 ${total}。有一分钟及以上的片段时，每段视频都按自身长度完整播放，静态图各占 ${still} 秒。`,
     withIntro: '片头',
     withOutro: '片尾',
@@ -1024,45 +1026,51 @@ async function setPosterPhoto(files) {
 wireDrop($('p-drop'), $('p-file'), setPosterPhoto);
 
 /* ---- tab 3 : video --------------------------------------------------- */
-const video = { slides: [], playing: false, recording: false, raf: 0, mime: pickMime(),
-  offline: false };
+const video = { slides: [], titles: null, playing: false, recording: false, raf: 0,
+  mime: pickMime(), offline: false };
 
-const INTRO_S = 2.0, OUTRO_S = 2.4;
 const videoOpts = () => ({
   total: +$('v-secs').value,
   fade: 0.6,
   motion: $('v-motion').value,
   transition: $('v-trans').value,
   audio: $('v-audio').checked,
-  intro: $('v-intro').checked ? INTRO_S : 0,
-  outro: $('v-outro').checked ? OUTRO_S : 0,
-  brand: {
-    logo: logoImg,
-    wordmark: 'NY DAILY WATCH',
-    handle: '@theNYdailywatch',
-    date: poster.data?.date || single.data?.date || '',
-    tail: 'LINK IN BIO',
-  },
+  // The titles are clips on the timeline now, not something drawn over it.
+  intro: 0,
+  outro: 0,
 });
+
+/* What actually gets rendered: the title clips wrap the user's slides, so every
+   part of the cut goes down the same path. */
+function timelineSlides() {
+  if (!video.titles) return video.slides;
+  const out = [...video.slides];
+  if ($('v-intro').checked) out.unshift(video.titles.intro);
+  if ($('v-outro').checked && out.length) out.push(video.titles.outro);
+  return out;
+}
+
+/* Where the user's own slides start in that list. */
+const slideOffset = () => (video.titles && $('v-intro').checked ? 1 : 0);
 
 /* The running time is the plan's, not the number in the box: a cut fitted to
    long footage sets its own length. */
-const plannedTotal = () => planTimeline(video.slides, videoOpts()).total;
+const plannedTotal = () => planTimeline(timelineSlides(), videoOpts()).total;
 
 function paintVideoAt(frac) {
   const ctx = $('v-canvas').getContext('2d');
   const o = videoOpts();
-  const total = planTimeline(video.slides, o).total;
+  const shown = timelineSlides();
+  const total = planTimeline(shown, o).total;
   // Scrubbing seeks the clips; playing lets them run. Same frames either way.
-  if (video.slides.length) syncClips(video.slides, frac * total, o, { live: video.playing });
+  if (shown.length) syncClips(shown, frac * total, o, { live: video.playing });
   // With nothing loaded, hold the finished opening title rather than a black
   // frame, so the tab shows what it makes.
-  if (!video.slides.length) {
+  if (!shown.length) {
     ctx.fillStyle = '#121212'; ctx.fillRect(0, 0, V.W, V.H);
-    if (o.intro) drawIntro(ctx, 1, o.brand);
     return;
   }
-  drawFrame(ctx, video.slides, frac * total, o);
+  drawFrame(ctx, shown, frac * total, o);
 }
 
 const clock = (n) => (n >= 60
@@ -1101,13 +1109,14 @@ function renderStrip() {
 /* One line per cue, so the seconds each one gets are worth showing — a cue
    under the floor is one nobody can finish reading. */
 function paintCueInfo() {
-  const plan = planTimeline(video.slides, videoOpts());
+  const plan = planTimeline(timelineSlides(), videoOpts());
+  const off = slideOffset();
   document.querySelectorAll('#v-strip .cues').forEach((el) => {
     const i = +el.dataset.cues;
     const slide = video.slides[i];
     const cues = cuesOf(slide);
     if (cues.length < 2) { el.textContent = ''; el.className = 'cues'; return; }
-    const spans = cueSpans(cues, plan.spans[i] || 1);
+    const spans = cueSpans(cues, plan.spans[i + off] || 1);
     const min = Math.min(...spans);
     el.textContent = t('cueCount', cues.length, min.toFixed(1));
     el.className = 'cues' + (min < MIN_CUE - 0.01 ? ' tight' : '');
@@ -1178,7 +1187,12 @@ $('v-strip').addEventListener('drop', (e) => {
 function updateVideoMeta() {
   const n = video.slides.length;
   const o = videoOpts();
-  const plan = planTimeline(video.slides, o);
+  const shown = timelineSlides();
+  const plan = planTimeline(shown, o);
+  // The titles run at their own length; the box governs everything else.
+  const titleSecs = shown.filter((s) => s.fixed)
+    .reduce((sum, s) => sum + (s.el.duration || 0), 0);
+  const contentSecs = Math.max(0, plan.body - titleSecs);
   const clips = video.slides.filter((s) => s.kind === 'video').length;
 
   // Footage a minute or longer takes the running time out of the box's hands,
@@ -1189,7 +1203,8 @@ function updateVideoMeta() {
   $('v-per').textContent = !n ? t('noSlides')
     : plan.fitted
       ? t('fitted', clock(plan.total), STILL_SECS)
-      : t('perSlide', n, (plan.body / n).toFixed(1)) +
+      : t('perSlide', n, (contentSecs / n).toFixed(1)) +
+        (titleSecs ? ' · ' + t('titleNote', clock(titleSecs), clock(plan.total)) : '') +
         (clips ? ' · ' + t('clipNote', clips) : '');
   paintCueInfo();
   $('v-meta').textContent = video.mime ? t('videoMeta', video.mime, n) : t('noRecorder');
@@ -1307,7 +1322,7 @@ $('v-scrub').addEventListener('input', () => { stopPlay(); paintVideoAt(+$('v-sc
 function stopPlay() {
   video.playing = false;
   cancelAnimationFrame(video.raf);
-  if (video.slides.length) resetClips(video.slides);
+  resetClips(timelineSlides());
   $('v-play').textContent = t('btnPlay');
 }
 
@@ -1345,7 +1360,7 @@ $('v-render').addEventListener('click', async () => {
   const run = offline ? exportVideo : recordVideo;
   try {
     const { blob, ext, mime, cancelled } = await run(
-      $('v-canvas'), video.slides, o,
+      $('v-canvas'), timelineSlides(), o,
       // The exporter knows how many frames it will write — with footage passed
       // through, that is not the running time times a frame rate.
       (p, at) => {
@@ -1612,6 +1627,14 @@ document.querySelectorAll('[data-lang]').forEach((b) => b.addEventListener('clic
   }
 
   video.offline = await offlineSupported();
+  // The title clips ship with the tool, but the page must not wait on six
+  // megabytes of them before it will draw anything; they arrive and the video
+  // tab catches up.
+  loadTitles().then((titles) => {
+    video.titles = titles;
+    updateVideoMeta();
+    paintVideoAt(+$('v-scrub').value / 1000);
+  }).catch(() => { video.titles = null; });
   setTemplate('photo');
   for (const [id, val] of [['p-ratio', poster.ratio], ['k-ratio', chart.ratio]]) {
     document.querySelectorAll('#' + id + ' button').forEach((b) =>
